@@ -431,24 +431,15 @@ Editing only what's needed to point an **understood** exploit at your **authoriz
 - Change the hard-coded **target IP** to your Metasploitable IP.
 - Change the **port** if it differs from your scan.
 - Set any required **parameter**.
-- If it returns a **reverse shell**, start a listener first.
+- If it returns a **reverse shell**, start a listener first:
+
+```
+nc -lvnp <port>      # -l listen · -v verbose · -n no DNS · -p port
+```
 
 > Keep it **light**: IP, port, a parameter. Full exploit development is a different course.
 
----
-
-# Setting a listener (if needed)
-
-If the exploit sends a shell **back** to you (a reverse shell), you need something listening:
-
-```
-nc -lvnp <port>
-```
-
-- `-l` listen · `-v` verbose · `-n` no DNS · `-p` port.
-- Then run the exploit so the target connects back to you.
-
-<!-- Not every exploit needs this. The vsftpd backdoor connects to port 6200 ON the target instead. -->
+<!-- Not every exploit needs a listener; the vsftpd backdoor connects to port 6200 ON the target instead. -->
 
 ---
 
@@ -594,7 +585,7 @@ Submit the finding draft, plus one sentence:
 
 # 🚀 Lab walk-through (Days 2–5)
 
-**Platform:** `searchsploit` / Exploit-DB on **Kali** vs. **Metasploitable 2** (or an authorized **TryHackMe** CVE room).
+**Platform:** `searchsploit` / Exploit-DB on **Kali** vs. **Metasploitable 2** (or an authorized **TryHackMe** CVE room). Confirm the lab is fully **isolated** first.
 
 1. Re-confirm a service + version (`nmap -sV`).
 2. Look it up by **CVE** on **NVD**; record the **CVSS** score.
@@ -602,8 +593,6 @@ Submit the finding draft, plus one sentence:
 4. **Read** it (complete the checklist), **match**, **adapt** (IP/port).
 5. **Run** it on the lab box; capture `whoami` / `id`.
 6. Find the **patch**; write the **CVE → exploit → result** finding.
-
-> Confirm the lab is fully **isolated** before you touch anything.
 
 ---
 
