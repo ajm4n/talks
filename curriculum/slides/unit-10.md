@@ -190,37 +190,22 @@ Three parts:
 | **4xx** | Client error | 403 Forbidden, 404 Not Found |
 | **5xx** | Server error | 500 Internal Server Error |
 
-> Memory trick: **4xx = "you messed up"**, **5xx = "the server messed up."**
+The ones that matter to us: **200** (here it is), **301/302** (look elsewhere), **403** (exists, but forbidden), **404** (nothing here), **500** (server crashed).
+
+> **4xx = "you messed up", 5xx = "the server messed up."** And to an attacker, **403 and 200 both mean "something is there."**
 
 ---
 
-# Status codes that matter to us
-
-- **200 OK** — here is what you asked for.
-- **301 / 302** — go look somewhere else (redirect).
-- **403 Forbidden** — it **exists**, but you can't have it.
-- **404 Not Found** — there's nothing here.
-- **500** — the server crashed handling your request.
-
-> For an attacker doing discovery, **403 and 200 both mean "something is there."**
-
----
-
-# Day 1 guided practice
+# Day 1 guided practice + exit ticket
 
 Using the **Anatomy of HTTP** handout:
 
-1. Label a printed request: method, path, headers, body.
-2. Label a printed response: status code, headers, body.
-3. Decode a list of status codes — what does each tell you?
+1. Label a printed request (method, path, headers, body) and response (status, headers, body).
+2. Decode a list of status codes — what does each tell you?
 
 **Lab start:** Begin TryHackMe "Burp Suite: The Basics" intro tasks (concepts only — no interception yet).
 
----
-
-# Day 1 exit ticket
-
-> What does status code **404** mean, and is it the **client's** or the **server's** fault?
+**Exit ticket:** *What does status code **404** mean, and is it the client's or the server's fault?*
 
 <!-- Answer: resource not found — a client-side address problem (the client asked for something that isn't there). Distinguish from 500 (server's fault). -->
 
@@ -316,21 +301,17 @@ Set-Cookie: session=abc123; HttpOnly; Secure
 
 ---
 
-# Day 2 guided practice
+# Day 2 guided practice + exit ticket
 
 1. Take a sample URL apart into scheme, host, path, query string, parameters.
-2. For a login form, label which steps happen **client-side** vs **server-side**:
+2. For a login form, label client-side vs server-side:
    - Typing in the box → client-side
    - "Password too short" popup → client-side (bypassable!)
    - Checking the password against the database → server-side
 
 **Lab:** continue the TryHackMe Burp room.
 
----
-
-# Day 2 exit ticket
-
-> Give **one** example of something that happens **client-side** and **one** that happens **server-side**.
+**Exit ticket:** *Give one example of something that happens client-side and one server-side.*
 
 <!-- Client-side: JS validation, rendering HTML. Server-side: checking a password against the DB, querying records. -->
 
