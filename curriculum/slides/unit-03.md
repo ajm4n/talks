@@ -8,26 +8,28 @@ footer: "Curriculum by AJ Hammond — PNPT, CRTO, OSCP, BSCP"
 
 <!-- _class: lead -->
 
-# Unit 03 — Networking Fundamentals
+# Networking Fundamentals
+## Unit 03 — Technical Foundations
 
-You can't attack — or defend — a network you don't understand.
+You can't attack — or defend — a network you don't understand. This week we learn how data actually travels, from zero.
 
-<!-- Week 3. We teach networking from zero; nothing is assumed. This makes the rest of the course make sense. -->
+<!-- Week 3, ~5 class periods. PEN-200 assumes you know TCP/IP; this course does not. Teach it from scratch. Capture permissions are the #1 failure point — test machines before Day 4 and have a backup .pcap ready. -->
 
 ---
 
-# Learning Objectives
+# Learning objectives
 
 By the end of this unit you can:
 
-- **Describe** how data travels from one device to another.
-- **Tell apart** an IP address and a MAC address.
+- **Describe**, in order, how data travels from one device to another.
+- **Distinguish** an IP address from a MAC address.
 - **Identify** an IPv4 address as public or private.
 - **Match** 8+ common ports to their services.
-- **Explain** TCP vs. UDP and give an example of each.
+- **Explain** TCP vs. UDP and give a use of each.
 - **Diagram** the TCP three-way handshake (SYN → SYN-ACK → ACK).
-- **Relate** the TCP/IP 4-layer model to the OSI model.
-- **Trace** a DNS lookup; **capture** live traffic in Wireshark.
+- **Describe** the 4-layer TCP/IP model and relate it to the OSI model.
+- **Trace** a DNS lookup from a name to an IP.
+- **Capture** live traffic in Wireshark and identify protocol, IPs, and ports.
 
 ---
 
@@ -36,8 +38,9 @@ By the end of this unit you can:
 - A **network** = two or more devices connected to share data.
 - A **host** = any device on it (computer, phone, printer, server).
 - A **router** forwards packets between different networks.
+- A **packet** = a small chunk of data wrapped with addressing info.
 
-> Warm-up: how does a text you send actually reach your friend's phone? We'll answer it by Day 5.
+> Big picture: data is chopped into packets, each labeled with where it's from and where it's going, then forwarded hop by hop.
 
 ---
 
@@ -45,35 +48,32 @@ By the end of this unit you can:
 
 | | IP address | MAC address |
 |--|-----------|-------------|
-| **What** | Numeric network address | Hardware ID on the network card |
-| **Example** | `192.168.1.10` | `00:1A:2B:3C:4D:5E` |
-| **Changes?** | Yes — logical, *where you are* | No — fixed to the device |
-| **Used for** | Routing across the internet | Delivery on the local segment |
+| Looks like | `192.168.1.10` | `00:1A:2B:3C:4D:5E` |
+| What it is | Logical address — *where* you are | Hardware ID burned into the card |
+| Changes? | Yes (it's where you are now) | No (fixed to the device) |
+| Used for | Routing across the internet | Delivery on the local segment |
 
-> IP = your mailing address. MAC = your name on the mailbox.
-
-<!-- Students confuse these constantly. Reinforce: IP can change, MAC is fixed. -->
+<!-- The classic mix-up. IP = mailing address (can change); MAC = your name on the mailbox (fixed). -->
 
 ---
 
 # Public vs. private IPs
 
-- **Public IP** — reachable on the open internet.
-- **Private IP** — used only inside a local network.
+These three blocks are **private** — used inside a local network, not directly reachable from the internet:
 
-**Memorize the three private blocks:**
+- `10.0.0.0/8` → `10.x.x.x`
+- `172.16.0.0/12` → `172.16.x` through `172.31.x`
+- `192.168.0.0/16` → `192.168.x.x`
 
-- `10.0.0.0/8`
-- `172.16.0.0/12`  (that's `172.16` – `172.31`)
-- `192.168.0.0/16`
+Everything else routable is **public**. Loopback is `127.0.0.1`.
 
-> Exit-ticket style: is `192.168.0.42` public or private? How do you know?
+<!-- Memorize the three private blocks — students mix these up constantly. Quick game: sort sample IPs public vs private. -->
 
 ---
 
 # Ports & services
 
-A **port** is a numbered "door" on a host; one IP, many doors (like apartment numbers).
+One host (one IP) can run many services — each listens on a numbered **port** (like apartment doors at one street address).
 
 | Port | Service | Port | Service |
 |------|---------|------|---------|
@@ -83,20 +83,20 @@ A **port** is a numbered "door" on a host; one IP, many doors (like apartment nu
 | 25 | SMTP | 3389 | RDP |
 | 53 | DNS | | |
 
-<!-- Day 2: run the ports-matching game. Exit ticket: name the port for HTTPS, SSH, and DNS. -->
+<!-- Run ports-to-services as a quick matching game. A protocol is the agreed rules; a service is the program answering on the port. -->
 
 ---
 
-# The two models
+# TCP/IP & OSI models
 
-| TCP/IP (4 layers) | What lives here |
-|-------------------|-----------------|
-| **Application** | HTTP, DNS, the apps you use |
-| **Transport** | TCP / UDP, **ports** |
-| **Internet** | IP addresses, routing |
-| **Link** | cables, Wi-Fi, **MAC** |
+| TCP/IP (4 layers) | Example | OSI (rough) |
+|-------------------|---------|-------------|
+| **Application** | HTTP, DNS, SSH | 5–7 |
+| **Transport** | TCP, UDP (**ports**) | 4 |
+| **Internet** | IP (**IP addresses**) | 3 |
+| **Link** | Ethernet (**MAC**) | 1–2 |
 
-The **OSI model** is a 7-layer reference map. Keep it practical: *which layer is this thing on?*
+> Don't memorize all 7 OSI layers — just answer "which layer is this thing on?" The 4-layer model is what you'll actually use.
 
 ---
 
@@ -104,43 +104,38 @@ The **OSI model** is a 7-layer reference map. Keep it practical: *which layer is
 
 | | TCP | UDP |
 |--|-----|-----|
-| **Style** | Connection-based | Connectionless |
-| **Reliable?** | Yes — confirms delivery | No guarantee |
-| **Speed** | Slower | Fast |
-| **Use** | Web, SSH | DNS, video streaming |
+| Connection? | Yes — confirms delivery | No — just sends |
+| Speed | Slower, reliable, ordered | Fast, no guarantee |
+| Use it for | Web, SSH, file transfer | DNS lookups, video/voice streaming |
 
-> Phone call (TCP) vs. dropping a postcard in the mail (UDP).
-
----
-
-# The three-way handshake
-
-How every TCP connection starts:
-
-```
-Client  ──  SYN      ──▶  Server
-Client  ◀── SYN-ACK  ──   Server
-Client  ──  ACK      ──▶  Server   ✅ connected
-```
-
-- **SYN** — client asks to connect.
-- **SYN-ACK** — server agrees (one packet, from the server).
-- **ACK** — client confirms.
-
-<!-- Common error: students expect TWO SYNs. The SYN-ACK is a single packet back from the server. -->
+> Analogy: TCP is a **phone call** (you confirm the other side hears you). UDP is **dropping a postcard** in the mail.
 
 ---
 
-# DNS — the internet's phonebook
+# The TCP three-way handshake
 
-You type `example.com`; your computer doesn't know what that means yet.
+```
+Client  ──── SYN ────▶  Server     (1) "Can we talk?"
+Client  ◀── SYN-ACK ──  Server     (2) "Yes — can you hear me?"
+Client  ──── ACK ────▶  Server     (3) "Yes. Connected."
+```
 
-1. Your device asks a **recursive resolver**.
-2. It walks **root → TLD → authoritative** servers.
-3. The answer comes back: an **IP address** (an A record).
-4. Your browser connects to that IP.
+- **SYN-ACK comes back from the server** — it's **one** packet, not two SYNs.
+- After ACK, the connection is established and data flows.
 
-> A DNS query asks "what's the IP for this name?" and gets an address back. Usually **UDP port 53.**
+<!-- The direction trips students up: there is only ONE SYN from the client. The SYN-ACK is a single packet from the server. -->
+
+---
+
+# DNS: the internet's phonebook
+
+1. You type `example.com` — your computer doesn't know its IP yet.
+2. **Stub resolver** asks a **recursive resolver**.
+3. Resolver walks **root → TLD → authoritative** servers.
+4. An **A record** (the IPv4 address) comes back.
+5. Your browser connects to that IP.
+
+> DNS queries usually ride **UDP port 53**. A query asks "what's the IP for this name?"; the response carries the answer.
 
 ---
 
@@ -148,80 +143,80 @@ You type `example.com`; your computer doesn't know what that means yet.
 
 # ⚖️ Ethics & Authorization
 
-## Packet capture is **wiretapping** when the traffic isn't yours.
+## Packet capture is wiretapping when the traffic isn't yours.
 
-Capturing on a network you **own or are authorized to test** (this lab, your home network) is fine. Capturing other people's traffic — public Wi-Fi, the school network outside this lab — can be a **crime**, even if you "just looked."
+Capturing on a network you **own or are authorized to test** (this classroom lab, your own home network) is fine. Capturing **other people's** traffic — public Wi-Fi, a friend's network, the school network outside this lab — can break wiretap and computer-crime laws **even if you "just looked."**
 
-> The line is always **authorization and scope.**
+The dividing line, as always, is **authorization and scope.**
 
-<!-- Discussion: "I ran Wireshark at the coffee shop but didn't DO anything with it." Ethical? Legal? Does intent change it? -->
+<!-- Discussion: "I ran Wireshark at the coffee shop and saw other people's traffic — but I didn't DO anything." Legal? Ethical? Does intent change it? Where's the line between curiosity and interception? -->
+
+---
+
+# Reading packets: Wireshark & tcpdump
+
+- **Wireshark** = a graphical tool to capture and inspect packets.
+- **tcpdump** = the command-line version.
+- **Display filters** let you focus the view:
+
+| Filter | Shows |
+|--------|-------|
+| `icmp` | Ping (echo request/reply) packets |
+| `dns` | DNS queries and responses |
+| `tcp.port == 80` | HTTP traffic |
+| `ip.addr == <IP>` | All traffic to/from one host |
+
+<!-- A firewall is just a rule-based filter (allow/deny by port/IP). ICMP has no ports — it rides directly on IP. -->
 
 ---
 
 # Key vocabulary
 
-| Term | Quick definition |
-|------|------------------|
-| IP / IPv4 | Numeric device address, e.g. `192.168.1.10` |
-| Public / Private IP | Reachable on the internet / local-only |
-| MAC address | Fixed hardware ID on a network card |
-| Port | Numbered "door" a service listens on |
-| Service | A program that answers requests on a port |
-| Protocol | Agreed rules for how devices talk |
-| TCP / UDP | Reliable+slower / fast+no-guarantee |
-| Three-way handshake | SYN → SYN-ACK → ACK |
+| Term | Meaning |
+|------|---------|
+| **IP / MAC address** | Logical (changeable) address / fixed hardware ID |
+| **Public / Private IP** | Reachable on the internet / local-network only |
+| **Port / Service** | A numbered door / the program answering on it |
+| **Protocol** | Agreed rules for two devices talking (HTTP, DNS, TCP) |
+| **TCP / UDP** | Reliable & connection-based / fast & connectionless |
+| **Three-way handshake** | SYN → SYN-ACK → ACK to start a TCP connection |
+| **DNS** | Turns names like `example.com` into IP addresses |
+| **Packet / Wireshark / tcpdump** | Chunk of data / GUI capture tool / CLI capture tool |
 
 ---
 
-# More vocabulary
+# Lab launch
 
-| Term | Quick definition |
-|------|------------------|
-| Packet | A small chunk of data wrapped with addressing info |
-| DNS | Turns names into IP addresses (the phonebook) |
-| OSI / TCP-IP model | 7-layer reference / practical 4-layer model |
-| Firewall | Filter that allows or blocks traffic by rules |
-| Router | Forwards packets between networks |
-| Wireshark | Graphical packet capture/inspection tool |
-| tcpdump | Command-line packet capture tool |
+**Platform:** TryHackMe networking room (browser, free tier) **and** Wireshark on your lab machine.
 
----
+- Finish the **TryHackMe networking room** to lock in concepts.
+- Find your own **IP + MAC** (`ip addr` / `ipconfig /all`); label public or private.
+- **Capture** a ping (`icmp`), then a web page load + DNS lookup.
+- **Locate the three-way handshake** (SYN → SYN-ACK → ACK) and annotate 3 packets.
 
-# Lab launch — Capture & read traffic
+→ Full walkthrough in this unit's **`lab.md`**. Capture **only** on the interface your teacher authorizes.
 
-**Platform:** **TryHackMe** networking room (browser) **and Wireshark** on your lab machine.
-
-You will:
-
-1. Finish the **TryHackMe networking room.**
-2. Find **your own IP and MAC** (`ip addr` / `ipconfig /all`); label your IP public or private.
-3. **Capture a ping** and filter `icmp`; record a request/reply pair.
-4. **Capture a web load + DNS**; record name asked → IP returned.
-5. **Find the three-way handshake** (`tcp.port == 80`) and annotate 3 packets.
-
-> Capture **only** on the interface your instructor authorizes — never other people's traffic.
-
-📄 Full instructions: `unit-03-networking-fundamentals/lab.md`
+<!-- Backup: if live capture fails (permissions/wrong interface), hand out the provided web-request.pcap or use loopback. -->
 
 ---
 
 # Recap
 
-- A **network** connects hosts; **routers** move packets between networks.
-- **IP** can change (where you are); **MAC** is fixed (the device).
-- Private blocks: `10`, `172.16–31`, `192.168`. Know the **common ports.**
-- **TCP** = reliable; **UDP** = fast. Connections start with **SYN → SYN-ACK → ACK.**
-- **DNS** turns names into IPs. Capturing others' traffic = **wiretapping.**
+- Data travels as **packets**; **IP** routes them, **MAC** delivers locally.
+- Three **private** blocks: `10`, `172.16–31`, `192.168`.
+- **Ports** map to services; **TCP** is reliable, **UDP** is fast.
+- TCP starts with **SYN → SYN-ACK → ACK**.
+- **DNS** turns names into IPs.
+- Capturing others' traffic without authorization is **wiretapping**.
 
 ---
 
 <!-- _class: lead -->
 
-# Exit ticket / discussion
+# Exit ticket & discussion
 
-**Discuss:** A student says, "I ran Wireshark at the coffee shop and saw other people's traffic — but I didn't *do* anything with it." Ethical? Legal? Does intent change the answer?
+**Exit ticket:** Put `SYN`, `ACK`, and `SYN-ACK` in the correct order — and say which side sends each.
 
-**Write:**
-- Put `SYN`, `ACK`, `SYN-ACK` in the right order.
-- Name the port for HTTPS, SSH, and DNS.
-- One-sentence "biggest surprise" from the capture lab.
+**Discuss:** Where exactly is the line between "I was just curious and looked at the packets" and "I intercepted someone's communications"? What makes the classroom lab capture legal when a coffee-shop capture isn't?
+
+<!-- Submit the annotated lab journal page. Next module: reconnaissance — finding information, the legal way. -->
