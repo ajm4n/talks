@@ -1,6 +1,6 @@
 ---
 marp: true
-theme: default
+theme: bootstrap
 paginate: true
 header: "Introduction to Offensive Security · Unit 10"
 footer: "Curriculum by AJ Hammond — PNPT, CRTO, OSCP, BSCP"
