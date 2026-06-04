@@ -66,6 +66,16 @@ Sketch your best guess. We'll keep these and redraw them on Day 5.
 
 ---
 
+# Why networking first?
+
+- Every attack and defense rides on a network.
+- You can't break — or protect — what you don't understand.
+- This week builds the map the rest of the course uses.
+
+> Learn how data travels before you try to intercept it.
+
+---
+
 # Networks, hosts & routers
 
 | Term | Meaning |
@@ -75,6 +85,16 @@ Sketch your best guess. We'll keep these and redraw them on Day 5.
 | **Router** | A device that forwards packets between **different** networks |
 
 Data hops from host → router → router → host until it arrives.
+
+---
+
+# How a message travels
+
+- Your phone hands the data to your home router.
+- Routers pass it along, hop by hop, toward the destination.
+- The far router delivers it to your friend's phone.
+
+> Like mail moving post office to post office until it arrives.
 
 ---
 
@@ -101,6 +121,30 @@ Data hops from host → router → router → host until it arrives.
 
 ---
 
+# Check your understanding
+
+> Main difference between an IP address and a MAC address?
+>
+> A) They are the same thing
+> B) IP is hardware and fixed; MAC is logical and changes
+> C) IP is logical and can change; MAC is a fixed hardware ID
+> D) MAC addresses only exist on the internet
+
+<!-- Quiz Q2. -->
+
+---
+
+# Answer
+
+**C — IP is logical and can change; MAC is a fixed hardware ID.**
+
+- Your IP depends on **where** you connect (home, school, café).
+- Your MAC is burned into the card — it travels with the device.
+
+> IP = where you are. MAC = who you are.
+
+---
+
 # Public vs. private IPs
 
 | Type | Reachable from the internet? |
@@ -115,6 +159,37 @@ Memorize the **three private ranges**:
 - `192.168.0.0/16`
 
 Private devices reach the internet through **NAT** at the router.
+
+---
+
+# Why private IPs can't be reached directly
+
+- The same private ranges are reused on millions of networks.
+- Internet routers refuse to forward private addresses.
+- **NAT** at your router swaps your private IP for its public one.
+
+> Private addresses are like apartment numbers — meaningless without the building.
+
+---
+
+# Check your understanding
+
+> Which of these is a **private** IPv4 address?
+>
+> A) `8.8.8.8`   B) `192.168.1.10`   C) `203.0.113.5`   D) `93.184.216.34`
+
+<!-- Quiz Q1. -->
+
+---
+
+# Answer
+
+**B — `192.168.1.10`.**
+
+- It falls inside `192.168.0.0/16` — a private range.
+- The others are public, internet-routable addresses.
+
+> Memorize the three blocks: `10`, `172.16–31`, `192.168`.
 
 ---
 
@@ -172,6 +247,61 @@ Record your **IPv4** and your **MAC**. Is your IP public or private — and how 
 | 3389 | RDP | Yes |
 
 <!-- Day 2 ports-matching game. Goal: match all nine within a time limit. -->
+
+---
+
+# Encrypted vs. plaintext
+
+- **Encrypted** (SSH 22, HTTPS 443, RDP 3389): scrambled in transit.
+- **Plaintext** (FTP, Telnet, HTTP, SMTP): readable if captured.
+- Telnet (23) is the insecure twin of SSH (22).
+
+> Plaintext protocols are why packet capture is so revealing.
+
+---
+
+# Check your understanding
+
+> Which port is used by **HTTPS**?
+>
+> A) 22   B) 80   C) 443   D) 53
+
+<!-- Quiz Q3. -->
+
+---
+
+# Answer
+
+**C — 443.**
+
+- 80 is plain HTTP; 443 is HTTPS (encrypted).
+- 22 is SSH; 53 is DNS.
+
+> The "S" in HTTPS rides on port 443.
+
+---
+
+# Check your understanding
+
+> Which service runs on port **22**, and is it encrypted?
+>
+> A) FTP, not encrypted
+> B) Telnet, not encrypted
+> C) SSH, encrypted
+> D) RDP, encrypted
+
+<!-- Quiz Q8. -->
+
+---
+
+# Answer
+
+**C — SSH, encrypted.**
+
+- SSH gives a secure remote command line on port 22.
+- Telnet (23) does the same job but in **plaintext** — avoid it.
+
+> Need a remote shell safely? SSH on 22.
 
 ---
 
@@ -238,6 +368,27 @@ That's the difference between **TCP** and **UDP.**
 
 ---
 
+# Check your understanding
+
+> Which protocol is **connection-based and reliable**, confirming data arrived?
+>
+> A) UDP   B) TCP   C) ICMP   D) DNS
+
+<!-- Quiz Q4. -->
+
+---
+
+# Answer
+
+**B — TCP.**
+
+- TCP sets up a connection and confirms every delivery.
+- UDP just fires data off with no guarantee.
+
+> When losing data is unacceptable, TCP is the choice.
+
+---
+
 # The three-way handshake
 
 TCP opens every connection with **three** packets:
@@ -261,6 +412,30 @@ Client  --- ACK ------->  Server     (3) "Yes. Connected."
 Common mistake: expecting two SYNs. The server's reply combines SYN **and** ACK into one packet.
 
 <!-- Handshake direction trips students up. The SYN-ACK comes BACK from the server. -->
+
+---
+
+# Check your understanding
+
+> Put the TCP three-way handshake in the correct order:
+>
+> A) ACK → SYN → SYN-ACK
+> B) SYN → SYN-ACK → ACK
+> C) SYN → ACK → SYN-ACK
+> D) SYN-ACK → SYN → ACK
+
+<!-- Quiz Q5. -->
+
+---
+
+# Answer
+
+**B — SYN → SYN-ACK → ACK.**
+
+- Client asks (SYN), server agrees (SYN-ACK), client confirms (ACK).
+- Only **then** does real data flow.
+
+> Three packets to say hello, then the conversation begins.
 
 ---
 
@@ -302,6 +477,30 @@ DNS queries usually use **UDP port 53**; the response carries an **A record** (I
 
 ---
 
+# Check your understanding
+
+> What does **DNS** do?
+>
+> A) Encrypts web traffic
+> B) Turns a domain name into an IP address
+> C) Blocks traffic by rules
+> D) Assigns MAC addresses
+
+<!-- Quiz Q6. -->
+
+---
+
+# Answer
+
+**B — turns a domain name into an IP address.**
+
+- Encryption is HTTPS; blocking is a firewall.
+- DNS is just the lookup: name in, IP out.
+
+> No DNS, and you'd have to memorize every site's IP.
+
+---
+
 # Anatomy of a packet
 
 A **packet** is a small chunk of data wrapped with addressing info.
@@ -325,6 +524,30 @@ A **firewall** is a filter that **allows or blocks** traffic based on rules.
 
 ---
 
+# Check your understanding
+
+> A **firewall** primarily:
+>
+> A) Speeds up the network
+> B) Allows or blocks traffic based on rules
+> C) Stores web pages
+> D) Converts IPv4 to IPv6
+
+<!-- Quiz Q7. -->
+
+---
+
+# Answer
+
+**B — allows or blocks traffic based on rules.**
+
+- It's a gatekeeper, not a cache or a speed booster.
+- Rules can match port, IP, or protocol.
+
+> "Allow 443, block 23" is a firewall rule in plain English.
+
+---
+
 # Wireshark & tcpdump
 
 | Tool | What it is |
@@ -335,6 +558,27 @@ A **firewall** is a filter that **allows or blocks** traffic based on rules.
 > ⚖️ Reminder: capture **only** on networks you own or are authorized to test.
 
 <!-- Instructor demo: open Wireshark, capture, run ping + load a page, stop, point out DNS, ICMP, and TCP packets. -->
+
+---
+
+# Check your understanding
+
+> Which tool is a **command-line** packet-capture tool?
+>
+> A) Wireshark   B) tcpdump   C) ipconfig   D) ping
+
+<!-- Quiz Q10. -->
+
+---
+
+# Answer
+
+**B — tcpdump.**
+
+- Wireshark is the **graphical** capture tool.
+- `ipconfig` shows your config; `ping` tests reachability.
+
+> Same job as Wireshark, but typed at the terminal.
 
 ---
 
@@ -471,6 +715,30 @@ Source: 192.168.1.23:50112   Dest: 93.184.216.34:80   Flags: [SYN]
 - **Client:** `192.168.1.23:50112` (private IP, high ephemeral port)
 - **Server:** `93.184.216.34:80` (port 80 = HTTP)
 - **Doing:** the **first** packet of the three-way handshake — client asking to open a connection. Next expected: `[SYN, ACK]` from the server.
+
+---
+
+# Check your understanding
+
+> The server's port is well-known (like 80). The client's port is:
+>
+> A) Also 80
+> B) A random high "ephemeral" port
+> C) Always 443
+> D) The MAC address
+
+<!-- Quiz Q9. -->
+
+---
+
+# Answer
+
+**B — a random high "ephemeral" port.**
+
+- The server listens on a fixed, well-known port.
+- Your machine picks a temporary high port (like `50112`) per connection.
+
+> Well-known port = the shop's address. Ephemeral port = your return label.
 
 ---
 

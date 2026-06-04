@@ -136,6 +136,25 @@ python3 hello.py
 
 ---
 
+# The REPL is your sketchpad
+
+```bash
+python3
+>>> ports = [22, 80]
+>>> len(ports)
+2
+>>> ports.append(443)
+>>> ports
+[22, 80, 443]
+```
+
+- Try one line, see the result, build up your idea piece by piece.
+- When a snippet works in the REPL, paste it into your script.
+
+> Use the REPL to test small ideas before committing them to a file.
+
+---
+
 # Python vs. Bash
 
 | Idea | Bash | Python |
@@ -159,6 +178,24 @@ print(22 + 1)         # 23   (numbers added)
 
 - `"22"` is **text** (a `str`); `22` is a **number** (an `int`).
 - This matters: the `socket` module needs an **int** port, not a string.
+
+---
+
+# Check your understanding (Day 1)
+
+1. Name the two ways to run Python.
+2. In Python, how do you mark a block of code (instead of `do`/`done`)?
+3. Why is `"22"` different from `22`?
+
+> Answer before the next slide.
+
+---
+
+# Answers (Day 1)
+
+1. **Interactive** (`python3` REPL) and **as a script** (`python3 file.py`).
+2. By **indentation** — consistent spaces at the start of the lines.
+3. `"22"` is text (`str`); `22` is a number (`int`). Math vs. joining behave differently.
 
 ---
 
@@ -210,6 +247,21 @@ str(22)              # convert number -> text  -> "22"
 
 ---
 
+# Worked example: convert types
+
+```python
+port_text = "22"        # this is a string
+port_text + 1           # ERROR: can't add int to str
+int(port_text) + 1      # 23   (convert first)
+```
+
+- Input from the keyboard always arrives as a **string**.
+- Convert with `int(...)` before doing math or scanning a port.
+
+> The #1 scanner bug later: a port that's still a string. Remember `int()`.
+
+---
+
 # Strings: index and slice
 
 ```python
@@ -235,6 +287,24 @@ print(f"Scanning {target}")  # f-string plugs the variable in
 
 - `.split()` is how you turn typed text into a list.
 - An **f-string** (prefix `f`) plugs variables straight into the text.
+
+---
+
+# Check your understanding (Day 2)
+
+1. What does `int("80")` give you, and why use it?
+2. What does `"22,80,443".split(",")` return?
+3. Write an f-string that prints `Port 22 open` using a variable `p`.
+
+> Predict, then check.
+
+---
+
+# Answers (Day 2)
+
+1. The number `80` (an `int`) — needed for math and for `socket`.
+2. The list `['22', '80', '443']` — three **strings**.
+3. `f"Port {p} open"` — the `{p}` is replaced by the variable's value.
 
 ---
 
@@ -270,6 +340,24 @@ len(ports)            # how many items
 
 ---
 
+# Worked example: loop a list
+
+```python
+ports = [22, 80, 443]
+for port in ports:
+    print(f"Checking port {port}")
+```
+
+```
+Checking port 22
+Checking port 80
+Checking port 443
+```
+
+- The loop runs once per item, with `port` taking each value in turn.
+
+---
+
 # Dictionaries
 
 ```python
@@ -280,6 +368,19 @@ services.get(23, "unknown")     # 'unknown' if key missing
 
 - A dictionary maps a **key** to a **value**.
 - `.get(key, default)` avoids a crash when the key isn't there.
+
+---
+
+# Why `.get()` beats `[ ]`
+
+```python
+services = {22: "ssh", 80: "http"}
+services[23]              # KeyError — crashes!
+services.get(23, "?")     # '?'  — safe default
+```
+
+- `services[key]` **crashes** if the key is missing.
+- `.get(key, default)` returns your fallback instead. Safer in a loop.
 
 ---
 
@@ -311,6 +412,24 @@ while n <= 3:                # loop while a condition holds
 ```
 
 > A port scanner is really just: **loop over a list of ports and decide open/closed.**
+
+---
+
+# Check your understanding (Day 3)
+
+1. How do you add an item to the end of a list?
+2. Given `{22:"ssh"}`, how do you safely look up port 23?
+3. What punctuation must follow an `if` line, and what comes next?
+
+> Reason it out first.
+
+---
+
+# Answers (Day 3)
+
+1. `mylist.append(item)`.
+2. `services.get(23, "unknown")` — returns the default, no crash.
+3. A **colon** (`:`), then an **indented** body on the next line(s).
 
 ---
 
@@ -365,6 +484,16 @@ result = check_port("192.168.56.10", 22)   # call it
 
 ---
 
+# What is a port? An analogy
+
+- A host is a **building**; each **port** is a numbered door.
+- A service (SSH, web) listens behind a specific door (22, 80).
+- A scan **knocks** on each door to see which ones answer.
+
+> "Host up" (Bash week) = lights on. "Port open" = a specific door unlocked.
+
+---
+
 # The `socket` module
 
 ```python
@@ -379,6 +508,22 @@ s.close()
 - `AF_INET` = IPv4, `SOCK_STREAM` = TCP.
 - **`connect_ex` returns `0` when the port is open** (not `True`).
 - **`settimeout`** stops it hanging on closed/filtered ports.
+
+---
+
+# `connect_ex`: read the result
+
+```python
+result = s.connect_ex((ip, port))
+# result == 0   -> the door opened (OPEN)
+# result != 0   -> no answer / refused (CLOSED)
+return result == 0
+```
+
+- It returns a **number**, not `True`/`False`.
+- `0` means success — so `result == 0` is your "is it open?" test.
+
+> Expecting `True` here is a classic bug. `0` = open.
 
 ---
 
@@ -506,6 +651,49 @@ print(f"Done. {len(open_ports)} open: {open_ports}")
 - A minimal Linux target maybe just 22 and 80. Closed ports correctly print nothing.
 
 **Common bugs:** string vs int port, missing timeout (hangs), inverted `== 0`, bad indentation.
+
+---
+
+# Spot the bug: string ports
+
+```python
+ports = input("Ports: ").split(",")   # ['22','80'] (strings!)
+for port in ports:
+    check_port(target, port)           # socket needs an int
+```
+
+- Fix: convert each one — `check_port(target, int(port))`.
+- `input()` and `.split()` always hand back **strings**.
+
+---
+
+# Spot the bug: inverted test
+
+```python
+if result != 0:          # BUG
+    print("open")
+```
+
+- `connect_ex` returns `0` for **open**, so `!= 0` is backwards.
+- Fix: `if result == 0: print("open")`. Otherwise closed ports look open.
+
+---
+
+# Check your understanding (Day 5)
+
+1. `connect_ex` returns `0` — does that mean open or closed?
+2. Why does the scanner call `settimeout()`?
+3. A port came from `input()`. What must you do before scanning it?
+
+> Predict, then reveal.
+
+---
+
+# Answers (Day 5)
+
+1. **Open** — `0` means the connection succeeded.
+2. So it gives up after a short wait instead of **hanging** on closed ports.
+3. Convert it to a number with `int()` — `socket` needs an `int`.
 
 ---
 

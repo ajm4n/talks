@@ -70,6 +70,26 @@ By the end of this unit you can:
 
 ---
 
+# Why this unit matters
+
+- A foothold as a low-priv user is often nearly **harmless** on its own.
+- Privesc turns that toehold into **total control** of the machine.
+- The same enumeration attackers use is what **defenders** use to clean up.
+
+> The difference between a scare and a catastrophe is whether privesc succeeds.
+
+---
+
+# An analogy: the office building
+
+- A **foothold** is getting into the lobby with a visitor badge.
+- **Privesc** is finding the unlocked door to the **master key cabinet**.
+- **Enumeration** is patiently checking every door — not smashing a wall.
+
+> You rarely break in to the top. You **find** the door someone left open.
+
+---
+
 <!-- _class: lead -->
 
 # ⚖️ Read this before anything else
@@ -159,6 +179,35 @@ sudo -l       # what can I run as another user (often root)?
 
 ---
 
+# Reading `id` output
+
+```
+$ id
+uid=1000(bob) gid=1000(bob) groups=1000(bob),4(adm)
+```
+
+- `uid=1000` → a **normal user**, not root (`uid=0`).
+- `groups=` lists extra powers — `adm` can often read logs.
+
+> Group membership is a quiet lead. Always read the whole line.
+
+---
+
+# Reading `sudo -l` output
+
+```
+$ sudo -l
+User bob may run the following commands:
+    (root) NOPASSWD: /usr/bin/find
+```
+
+- `bob` can run `find` **as root**, with **no password**.
+- That single line is often the whole path to root.
+
+> `NOPASSWD` plus a flexible program is a gift to an attacker.
+
+---
+
 # Guided practice — predict the output
 
 As a class, run / predict the output of:
@@ -182,6 +231,24 @@ Read the Linux enumeration cheat-sheet. In your journal, write:
 
 - the **three "first questions"** you ask after landing on a machine,
 - and the **command** that answers each.
+
+---
+
+# Check your understanding
+
+> You land on a box as `bob`. In **one sentence**, why is careful enumeration more valuable than hunting for a fancy exploit?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- The owner almost always **left a misconfiguration behind**.
+- Finding that misconfig beats hoping a rare exploit exists.
+- Privesc is won by **looking carefully**, not by magic.
+
+> When you're stuck, you skipped an enumeration step — not a better exploit.
 
 ---
 
@@ -238,6 +305,16 @@ id                                      # confirm uid=0
 
 ---
 
+# Why that one line gives root
+
+- `sudo` runs `find` **as root**.
+- `find`'s `-exec` can launch **any** program — here, a shell `/bin/sh`.
+- That shell inherits root, because its parent (`find`) was root.
+
+> A "harmless" tool becomes a root shell the moment it can run *another* program.
+
+---
+
 # Vector 2 — SUID binaries
 
 A **SUID binary** runs with its *owner's* privileges (often root), no matter who launches it.
@@ -273,6 +350,29 @@ id                                          # euid=0
 2. Start the TryHackMe **Linux PrivEsc** room; get the low-priv shell.
 3. Run `sudo -l` and the SUID `find`.
 4. Attempt the **sudo** and/or **SUID** escalation. Record every command and result.
+
+---
+
+# Check your understanding
+
+> `find / -perm -4000` lists a SUID copy of `bash` owned by root.
+> Why is that dangerous, and what flag do you need?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- A SUID `bash` runs with its **owner's** rights — root.
+- You need `-p` so the shell **keeps** those privileges:
+
+```
+/path/bash -p
+id          # euid=0
+```
+
+> Without `-p`, bash drops back to your normal user. The flag is the whole trick.
 
 ---
 
@@ -343,6 +443,19 @@ ls -la /path/to/file        # check the rwx permissions (Unit 04!)
 
 ---
 
+# Reading the danger in `ls -la`
+
+```
+-rwxrwxrwx 1 root root 142 backup.sh
+```
+
+- Owner is **root**, but the last `rwx` = **everyone can write** it.
+- If root runs this script, your edits run **as root**.
+
+> The final three letters (`rwx` for "other") are where world-writable hides.
+
+---
+
 # Kernel exploits (awareness only)
 
 A **kernel exploit** attacks the core of the OS itself.
@@ -370,6 +483,25 @@ A **kernel exploit** attacks the core of the OS itself.
 1. Continue the room.
 2. Find and exploit the **cron** and/or **weak-permissions** vector to reach root.
 3. Capture proof (`id` showing `uid=0`, the root flag).
+
+---
+
+# Check your understanding
+
+> Root runs a world-writable script every minute via cron. You append a command to it.
+> Why must you **wait**, and what runs your code?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- The script only runs **when cron next fires** (e.g., each minute).
+- When it does, it runs **as root**, so your appended command runs as root.
+- A common payload: make a **SUID copy of bash**, then run it `-p`.
+
+> Edit, then wait for the interval. Impatience is the #1 cron mistake.
 
 ---
 
@@ -453,6 +585,26 @@ Same idea as Linux: normal user → **Administrator / SYSTEM**, driven by miscon
 
 ---
 
+# Check your understanding
+
+> A classmate says, "I'll just run LinPEAS and paste whatever it flags."
+> Give **two** reasons that's not enough.
+
+<!-- Pause. -->
+
+---
+
+# Answer (any two)
+
+- LinPEAS only **finds** candidates; it doesn't **decide** what's real.
+- Some findings are **false positives** or dead ends.
+- If the tool is missing or fails, **you** still need the skill.
+- You must be able to **explain** the actual vulnerability.
+
+> Verify by hand, confirm the path, and understand *why* it works.
+
+---
+
 # Day 4 exit ticket
 
 > Why shouldn't a pentester rely on **LinPEAS/WinPEAS alone**? Give one reason.
@@ -496,6 +648,24 @@ Same idea as Linux: normal user → **Administrator / SYSTEM**, driven by miscon
 - **Patching/updates** — close kernel and software exploits.
 
 > Three layers. If one is missed, the others still slow the attacker down.
+
+---
+
+# Check your understanding
+
+> Match each to its best defense: (a) a `NOPASSWD` sudo grant, (b) a world-writable cron script, (c) an out-of-date kernel.
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- (a) sudo grant → **least privilege** (remove the broad grant).
+- (b) cron script → **hardening** (fix the file permissions).
+- (c) old kernel → **patching** (keep the kernel current).
+
+> Every vector you exploit has a specific fix. Name it in your report.
 
 ---
 

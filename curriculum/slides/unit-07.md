@@ -56,7 +56,7 @@ By the end of this unit you can:
 | Term | Meaning |
 |------|---------|
 | **Reconnaissance (recon)** | The info-gathering phase — learn about a target before doing anything. |
-| **Attacker lifecycle** | The ordered phases: recon → scanning → exploitation → post-exploitation → reporting. |
+| **Attacker lifecycle** | recon → scanning → exploitation → post-exploitation → reporting. |
 | **Passive info gathering** | Collecting info *without* touching the target's systems. |
 | **Active info gathering** | Directly probing the target (scanning) — next unit; needs authorization. |
 | **OSINT** | Open-Source Intelligence — info from publicly available sources. |
@@ -75,16 +75,25 @@ By the end of this unit you can:
 
 ---
 
-# Vocabulary — techniques & limits
+# Vocabulary — techniques
 
 | Term | Meaning |
 |------|---------|
 | **Google dorking** | Using advanced search operators to find specific public info. |
-| **Search operator** | A keyword that narrows a search (`site:`, `filetype:`, `intitle:`, `inurl:`, `-`). |
-| **Metadata** | "Data about data" — hidden info in files (author, software, GPS, time). |
-| **Breach data** | Info exposed in a past breach. **Awareness only** — we never download/use it. |
+| **Search operator** | A keyword that narrows a search (`site:`, `filetype:`, `intitle:`). |
+| **Metadata** | "Data about data" — hidden info in files (author, software, GPS). |
+| **Breach data** | Info exposed in a past breach. **Awareness only** — never used. |
+
+---
+
+# Vocabulary — limits
+
+| Term | Meaning |
+|------|---------|
 | **Attack surface** | All the points where a target could be probed or attacked. |
 | **Scope** | The agreed boundary of what you're allowed to look at. |
+| **Doxing** | Harmful aggregation of a real person's public facts. |
+| **Authorization** | Written permission that makes an assessment legal. |
 
 ---
 
@@ -125,16 +134,26 @@ Real attacks (and real pentests) follow an order:
 
 ---
 
+# The lifecycle is a loop, not a line
+
+- Each phase **feeds** the next: recon findings shape what you scan.
+- Late phases can **send you back**: post-exploitation may reveal a new host to recon.
+- Reporting ties it together for the **defender** who has to fix it.
+
+> Think of it as a spiral — you keep learning more about the target.
+
+---
+
 # Passive vs active — the key split
 
 | | Passive (this unit) | Active (next unit) |
 |---|---|---|
 | Touches the target? | **No** | **Yes — sends packets** |
-| Sources | Public records, third parties | The target's own systems |
+| Sources | Public records | The target's systems |
 | Example | Read a job posting | nmap a web server |
-| Authorization | Still bound by law/ethics | **Legally required** |
+| Authorization | Bound by law/ethics | **Legally required** |
 
-> Passive recon collects information that is **already public**, without ever touching the target.
+> Passive recon collects info that is **already public**, without touching the target.
 
 ---
 
@@ -178,7 +197,18 @@ We gather info **only** about the teacher-seeded fictional target or **our own**
 - Every fact (employer, gym schedule, kid's school) was *individually* public.
 - Combined, they create something **new and dangerous**.
 
-> Authorization and scope apply even to "just looking." Where is the line between **research** and **surveillance**? Hold that thought.
+> Where is the line between **research** and **surveillance**? Hold that thought.
+
+---
+
+# Our target rules — say them out loud
+
+- ✅ The teacher-seeded fictional target (e.g., "BrightLeaf Coffee").
+- ✅ **Your own** public footprint.
+- ❌ A real classmate, teacher, or neighbor.
+- ❌ A real local business or any real third party.
+
+> If you are not 100% sure a target is authorized — **stop and ask.**
 
 ---
 
@@ -188,11 +218,33 @@ Classify each. Which need authorization?
 
 | Activity | Passive / Active |
 |----------|------------------|
-| Read the company's public job postings | Passive |
+| Read public job postings | Passive |
 | Scan their web server with nmap | **Active** |
 | Look up their WHOIS record | Passive |
-| Log into their admin panel | **Active** (and illegal) |
-| Search the company name on Google | Passive |
+| Log into their admin panel | **Active** (illegal) |
+| Search the company on Google | Passive |
+
+---
+
+# Check your understanding
+
+> A friend says: *"Looking someone up online is always legal — it's all public anyway."*
+
+Is your friend right? **Why or why not?**
+
+Think before the next slide.
+
+---
+
+# Answer
+
+**Not quite.** Passive recon avoids touching systems, so it rarely breaks intrusion law *by itself*.
+
+**But:**
+- Aggregating a real person's facts can be **doxing**.
+- Stalking, harassment, and privacy law still apply.
+
+> "It's public" ≠ "ethical to use." Scope and authorization matter.
 
 ---
 
@@ -232,11 +284,26 @@ A public record created when a domain is registered. It can show:
 - **Registrar** (e.g., GoDaddy, Namecheap)
 - **Registration date** and **expiry date**
 - **Name servers**
-- Sometimes the **registrant contact** (often redacted for privacy)
+- Sometimes the **registrant contact** (often redacted)
 
 ```bash
 whois brightleafcoffee.example
 ```
+
+---
+
+# WHOIS — reading the output
+
+```text
+Registrar:        DemoRegistrar LLC
+Creation Date:    2021-03-04
+Expiry Date:      2026-03-04
+Name Server:      ns1.demoreg.example
+Registrant:       REDACTED FOR PRIVACY
+```
+
+- A **3-year-old** domain reads as more established than a brand-new one.
+- The **name server** hints at who hosts their DNS.
 
 ---
 
@@ -256,15 +323,15 @@ Many registrants use **privacy redaction**, hiding contacts.
 
 # DNS — the internet's phonebook
 
-DNS maps names to addresses and services. Key record types:
+DNS maps names to addresses and services.
 
-| Record | Points to | Reveals |
-|--------|-----------|---------|
-| **A** | An IPv4 address | Where the site lives |
-| **MX** | Mail servers | Email provider / self-hosted mail |
-| **NS** | Name servers | Who runs their DNS |
-| **TXT** | Free text (SPF, etc.) | Email vendors, verification tokens |
-| **CNAME** | Another name (alias) | Third-party services |
+| Record | Points to |
+|--------|-----------|
+| **A** | An IPv4 address |
+| **MX** | Mail servers |
+| **NS** | Name servers |
+| **TXT** | Free text (SPF, verification) |
+| **CNAME** | Another name (alias) |
 
 ---
 
@@ -277,10 +344,34 @@ dig brightleafcoffee.example NS
 dig brightleafcoffee.example TXT
 ```
 
-- `dig <domain> <type>` asks DNS for one record type.
+- `dig <domain> <type>` asks DNS for **one** record type.
 - Browser alternative: any online "DNS lookup" tool.
 
-**What does MX reveal?** Whether they run their own mail or use a provider — and which one.
+---
+
+# What the MX record reveals
+
+```text
+brightleafcoffee.example.  MX  10 mail.brightleafcoffee.example.
+```
+
+- Whether they **run their own mail** or use a provider.
+- *Which* provider (e.g., Google, Microsoft) — a clue to their stack.
+
+> One record, two findings: the mail host **and** the vendor.
+
+---
+
+# What a TXT record reveals
+
+```text
+brightleafcoffee.example.  TXT  "v=spf1 include:_spf.google.com ~all"
+```
+
+- **SPF records** list who may send mail for the domain.
+- `include:_spf.google.com` strongly hints they use **Google Workspace**.
+
+> Verification tokens in TXT records can name third-party tools too.
 
 ---
 
@@ -297,14 +388,24 @@ dig brightleafcoffee.example TXT
 # Certificate transparency (CT) logs
 
 - Every TLS (HTTPS) certificate issued is recorded in **public CT logs**.
-- Certificates list the hostnames they cover — including subdomains a company never advertised.
+- Certificates list the hostnames they cover — including subdomains never advertised.
 
 ```text
 Search a CT-log tool for: brightleafcoffee.example
 → returns: www.  mail.  dev.  ...
 ```
 
-> CT logs can surface `dev.`, `staging.`, and `vpn.` hosts the company forgot were exposed.
+> CT logs surface `dev.`, `staging.`, and `vpn.` hosts the company forgot.
+
+---
+
+# Why CT logs exist (the irony)
+
+- CT logs were built for **defense**: to catch fraudulent or mis-issued certificates.
+- A browser can verify a cert was logged publicly.
+- **Side effect:** anyone can read those logs too — including attackers.
+
+> A security feature that also leaks your hostnames. Both teams use it.
 
 ---
 
@@ -312,13 +413,32 @@ Search a CT-log tool for: brightleafcoffee.example
 
 On the **authorized seeded target** only:
 
-1. **WHOIS** the domain → record registrar, dates, name servers.
+1. **WHOIS** → record registrar, dates, name servers.
 2. **DNS**: look up A, MX, NS, TXT → note what MX reveals.
-3. **CT / subdomains**: list any subdomains that appear → flag the `dev.` host.
+3. **CT / subdomains**: list subdomains → flag the `dev.` host.
 
-**Record** which fields are present and what each tells a defender *or* an attacker.
+**Record** which fields are present and what each tells a defender *or* attacker.
 
 <!-- Demo against the teacher-seeded domain only. Walk around and initial the WHOIS/DNS milestone in each journal. Browser tools are fine; Kali whois/dig is the optional extension. -->
+
+---
+
+# Check your understanding
+
+> You run `dig` and see an **MX record** pointing to `aspmx.l.google.com`.
+
+What two things can you conclude?
+
+Think before the next slide.
+
+---
+
+# Answer
+
+1. The org **uses email** and you've found their **mail host**.
+2. `google.com` in the MX → they likely use **Google Workspace** for email.
+
+> That vendor knowledge shapes later phishing-awareness and defense planning.
 
 ---
 
@@ -372,14 +492,14 @@ It finds **already-public** budget PDFs on government sites — faster.
 |----------|------|---------|
 | `site:` | Limit to one site | `site:example.com` |
 | `filetype:` | Limit to a file type | `filetype:pdf` |
-| `intitle:` | Word in the page title | `intitle:"index of"` |
+| `intitle:` | Word in the title | `intitle:"index of"` |
 | `inurl:` | Word in the URL | `inurl:admin` |
-| `-` | Exclude a term | `-site:example.com` |
+| `-` | Exclude a term | `-blog` |
 | `"..."` | Exact phrase | `"BrightLeaf Coffee"` |
 
 ---
 
-# Building a dork
+# Building a dork (1 of 2)
 
 > Find only PDF files on the single site `example.com`:
 
@@ -387,13 +507,33 @@ It finds **already-public** budget PDFs on government sites — faster.
 site:example.com filetype:pdf
 ```
 
+- Two operators, both with their **colons**.
+- Drop either one and your search gets much noisier.
+
+---
+
+# Building a dork (2 of 2)
+
 > Find open directory listings on a site:
 
 ```text
 site:example.com intitle:"index of"
 ```
 
-Combine operators to narrow results to exactly what you want.
+- `"index of"` is the title web servers give an **exposed folder**.
+- A real win when a server was misconfigured to show its files.
+
+> Combine operators to narrow to exactly what you want.
+
+---
+
+# Why directory listings matter
+
+- An "index of" page means the server is **showing its raw files**.
+- Backups, configs, and spreadsheets often sit there by accident.
+- Nobody linked to it — but search engines found it anyway.
+
+> Misconfiguration, not magic. The fix is one server setting.
 
 ---
 
@@ -419,7 +559,7 @@ A real posting might say:
 
 ---
 
-# Lab Part B — search-engine OSINT & tech-stack inference
+# Lab Part B — search-engine OSINT
 
 On the **seeded dataset/sandbox** (not the live internet against a real org):
 
@@ -429,10 +569,31 @@ site:brightleafcoffee.example intitle:"index of"
 "BrightLeaf" filetype:xlsx -site:brightleafcoffee.example
 ```
 
-- Record each dork, what it was **meant** to find, and what it **returned**.
-- Read the seeded **job posting** → list every technology → infer the stack.
+- Record each dork, its **intent**, and what it **returned**.
+- Read the seeded **job posting** → list each tech → infer the stack.
 
 <!-- Expected: the pdf dork returns the seeded brochure; "index of" returns a seeded open directory; the xlsx dork returns a seeded employee list. Full credit = well-formed dork AND explained intent vs result. -->
+
+---
+
+# Check your understanding
+
+> Write a dork that finds **only spreadsheet (`.xlsx`) files** on the site `acme.example`.
+
+Try it before the next slide.
+
+---
+
+# Answer
+
+```text
+site:acme.example filetype:xlsx
+```
+
+- `site:` pins it to one domain.
+- `filetype:xlsx` limits to spreadsheets.
+
+> Both operators, both colons. Order doesn't matter; the colons do.
 
 ---
 
@@ -476,19 +637,36 @@ Hidden info stored inside files:
 
 ---
 
-# Why metadata is an attacker's gift
+# Extracting metadata with exiftool
 
-A sample PDF's metadata might show `Author = j.okafor`, `Software = LibreOffice 7.2`.
-
-- `j.okafor` is a likely **username format** (`first-initial-last-name`) → useful in later attacks.
-- `LibreOffice 7.2` is a **version** → a CVE lead.
-- Timestamps and GPS add even more.
-
-```bash
-exiftool sample-brochure.pdf
+```text
+$ exiftool sample-brochure.pdf
+Author        : j.okafor
+Creator Tool  : LibreOffice 7.2
+Create Date   : 2023:06:01 09:14:00
 ```
 
-<!-- Key teaching point: the username format is reusable in later attacks; the software version is a CVE lead (foreshadows Unit 09). -->
+> One command, three leaks. Browser metadata viewers work too.
+
+---
+
+# Why metadata is an attacker's gift
+
+- `j.okafor` reveals a likely **username format** (`first-initial-last-name`).
+- That format probably repeats for **every employee**.
+- `LibreOffice 7.2` is a **version** → a CVE lead (foreshadows Unit 09).
+
+> One PDF can hand you the whole company's username pattern.
+
+---
+
+# Photo metadata: the GPS problem
+
+- Phone cameras can tag photos with **exact GPS coordinates**.
+- A posted selfie can quietly reveal **home, school, or a daily route**.
+- "Where was this taken?" answered without anyone asking.
+
+> The defense: strip metadata before posting, or disable location tagging.
 
 ---
 
@@ -522,9 +700,28 @@ Now the blue-team move: shrink **your** exposure.
    ```bash
    exiftool sample-brochure.pdf
    ```
-   Record author/username, software + version, timestamps, GPS. Note what each leaks.
+   Record author/username, software + version, timestamps, GPS.
 
-2. **Your footprint (private):** audit **only yourself** with the self-audit checklist. Do **not** search classmates. Keep results private if you wish.
+2. **Your footprint (private):** audit **only yourself**. Do **not** search classmates. Keep results private if you wish.
+
+---
+
+# Check your understanding
+
+> A PDF's metadata shows `Author: m.chen` and `Creator Tool: Microsoft Word 2016`.
+
+Name **two** different things an attacker learns here.
+
+Think before the next slide.
+
+---
+
+# Answer
+
+1. **Username format** = `first-initial-last-name` → likely `m.chen` works org-wide.
+2. **Software + version** = `Word 2016` → a version to check for CVEs.
+
+> Bonus: timestamps and GPS, if present, leak even more.
 
 ---
 
@@ -561,10 +758,33 @@ A short, professional report on the **authorized target**:
 
 1. **Target + scope statement** (confirming authorization)
 2. **Sources used**
-3. **Findings organized by source** (WHOIS/DNS, CT, search/dorking, job posting, metadata)
+3. **Findings organized by source**
 4. **Defender "so what"** — how to reduce exposure
 
 > No real third party may appear in the report.
+
+---
+
+# Writing a scope statement
+
+A scope statement is one or two sentences that prove your work was authorized:
+
+> *"I gathered only publicly available information about the teacher-seeded fictional target, BrightLeaf Coffee. No real person or organization was investigated."*
+
+> Put it at the **top** of every report. It frames everything below.
+
+---
+
+# Organizing findings by source
+
+Group your findings so a reader can follow them:
+
+- **Infrastructure:** WHOIS, DNS, CT logs
+- **Search:** dorking results, open directories
+- **People & stack:** job posting, social media
+- **Files:** document metadata
+
+> Same facts, but organized = professional.
 
 ---
 
@@ -600,31 +820,37 @@ Tie each finding to a fix:
 - **Dorking** finds already-public content faster — not hacking.
 - **Metadata** leaks usernames, software versions, and GPS.
 - **Breach awareness** → use unique passwords.
-- "It's public" ≠ "ethical to use." **Scope + authorization always apply.**
+- "It's public" ≠ "ethical." **Scope + authorization always apply.**
 
 ---
 
-# Key vocabulary — quick review
+# Key vocabulary — quick review (1 of 2)
 
 | Term | Meaning |
 |---|---|
-| OSINT | Intelligence from publicly available sources |
+| OSINT | Intelligence from public sources |
 | Passive recon | Gathering info without touching the target |
 | WHOIS / DNS | Registration record / name→address mapping |
 | CT log | Public TLS-cert log (leaks hostnames) |
+
+---
+
+# Key vocabulary — quick review (2 of 2)
+
+| Term | Meaning |
+|---|---|
 | Dorking | Advanced search operators for public info |
 | Metadata | Hidden "data about data" inside files |
-| Doxing | Harmful aggregation of a real person's public facts |
+| Doxing | Harmful aggregation of a real person's facts |
 | Scope | The agreed boundary of what's allowed |
 
 ---
 
 # Discussion
 
-> Every fact in a person's "dossier" — their employer, their gym schedule, their kid's school — was individually public.
+> Every fact in a person's "dossier" — their employer, gym schedule, kid's school — was individually public.
 >
-> Does combining public facts create something **new and harmful**?
-> Where's the line between **research** and **surveillance/doxing**? Who decides?
+> Does combining public facts create something **new and harmful**? Where's the line between **research** and **surveillance**? Who decides?
 
 <!-- Let students wrestle with this. No single right answer — the point is judgment. Connect to doxing law and responsible behavior. -->
 
