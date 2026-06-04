@@ -8,155 +8,346 @@ footer: "Curriculum by AJ Hammond — PNPT, CRTO, OSCP, BSCP"
 
 <!-- _class: lead -->
 
-# Python for Security
-## Unit 06 — Technical Foundations
+# Unit 06
+## Python for Security
 
-Last week you scripted in Bash. This week, same ideas — variables, loops, functions — in a language real security tools are written in.
+Module 1 — Technical Foundations · ~5 class periods
 
-<!-- Week 6, ~5 class periods. Builds straight on Unit 05. Big payoff is a working TCP port scanner. Scope check (host-only adapter) is the #1 safety pitfall — verify before Day 4. -->
-
----
-
-# Learning objectives
-
-By the end of this unit you can:
-
-- **Explain** why Python is popular in security.
-- **Run** Python two ways: interactive (`python3`) and a script (`python3 file.py`).
-- **Use** variables and **types** (`str`, `int`, `float`, `bool`); convert between them.
-- **Work with** strings, lists, and dictionaries.
-- **Write** `if`/`elif`/`else` and `for`/`while` loops.
-- **Define** a function with parameters and a `return`.
-- **Import** a module (`socket`) and use `try`/`except`.
-- **Build** a working **TCP port scanner** for the isolated lab target.
+<!-- Builds directly on Bash week: same ideas (variables, loops, functions, conditionals), new language. We build a TCP port scanner against ONE isolated lab target. Python 3 only. Scope check before Day 4. -->
 
 ---
 
 # Why Python?
 
-- **Readable** — looks almost like English.
-- **Huge library ecosystem** — networking, web, crypto, all built in.
-- Real tools and exploit proof-of-concepts are written in it (Impacket, many PoCs).
-- **Cross-platform** — same code on Kali, macOS, Windows.
+- **Readable** and beginner-friendly; **huge** library ecosystem.
+- Used by real tools (Impacket) and most exploit proof-of-concepts.
+- Cross-platform: write once, run on Windows, Linux, macOS.
 
-> Bash glues commands together; Python builds the **tools** themselves.
+> This builds directly on Bash week — same ideas (variables, loops, functions, conditionals), new language.
 
-<!-- Warm-up: "You learned Bash last week. Why would a security pro also learn Python?" -->
+---
+
+# Learning objectives (1 of 2)
+
+By the end of this unit you can:
+
+- **Explain** why Python is popular in security; give two example tasks.
+- **Run** Python two ways: interactive (`python3`) and a script (`python3 file.py`).
+- **Create and use** variables of types `str`, `int`, `float`, `bool`, and convert between them.
+- **Work with strings** (index, slice, `.split()`, f-strings) and build **lists** and **dictionaries**.
+
+---
+
+# Learning objectives (2 of 2)
+
+- **Write** `if`/`elif`/`else`, `for`, and `while`.
+- **Define and call** a function with parameters and a return value.
+- **Import** a module (`socket`) and read/write a file.
+- **Use** `try`/`except` to handle errors instead of crashing.
+- **Build** a working **TCP port scanner** for a single **isolated lab target**.
+- **Apply** the rule: scanning runs **only** against the lab target.
+
+---
+
+# Key vocabulary (1 of 2)
+
+| Term | Meaning |
+|------|---------|
+| Interpreter | `python3` — runs Python code line by line. |
+| Interactive (REPL) | A live `>>>` prompt; type a line, see the result. |
+| Script | A `.py` file run top to bottom with `python3 file.py`. |
+| Type | `str` text, `int` whole number, `float` decimal, `bool` True/False. |
+| String | Text in quotes, e.g., `"22"` — text, not the number 22. |
+| f-string | A string with values plugged in: `f"Port {p} open"`. |
+| List | Ordered collection: `[22, 80, 443]`. |
+| Dictionary | `key: value` pairs: `{22: "ssh"}`. |
+
+---
+
+# Key vocabulary (2 of 2)
+
+| Term | Meaning |
+|------|---------|
+| Function | Reusable block defined with `def`, takes inputs, returns a result. |
+| Module | Ready-made code you `import` (e.g., `socket`). |
+| `socket` | Built-in module for making network connections. |
+| Port | A numbered "door" where a service listens (22=SSH, 80=HTTP). |
+| Timeout | Max time to wait before giving up, so it doesn't hang. |
+| Exception | An error that happens while running. |
+| `try`/`except` | Catch an exception and keep going instead of crashing. |
+| Port scanner | A program that checks which ports on a host are open. |
+
+---
+
+<!-- _class: lead -->
+
+# ⚖️ Writing the tool yourself changes nothing
+
+## A port scanner is a real scanning tool — the language doesn't matter.
+
+Building it in Python instead of running `nmap` does **not** make scanning an unauthorized host legal. The only legal target: the single isolated lab host you were assigned.
+
+---
+
+# Ethics + scope check
+
+- Port scanning without authorization can violate the **CFAA** and state law.
+- **Before any network code**, confirm the host-only adapter:
+
+```bash
+ip addr        # expect a 192.168.56.x (or your lab) address
+```
+
+- Not sure you're on the right network or pointed at the right target? **Stop and ask.**
+
+**Discussion:** In ~20 lines of Python you can check every port on a host. Why does building a tool *yourself* not change who you're allowed to point it at? What's the difference between *writing* a scanner and *running* it against a target?
+
+<!-- Scope is the #1 pitfall. A student on NAT/bridged could scan a real host. Verify everyone before Day 4. -->
+
+---
+
+<!-- _class: lead -->
+
+# Day 1
+## Why Python, and running it
+
+<!-- Warm-up: "You learned Bash last week. Why might a security pro also learn Python?" -->
 
 ---
 
 # Two ways to run Python
 
-**Interactive (REPL)** — type one line, see the result instantly:
+**Interactive (REPL)** — type a line, see the result instantly:
 
-```python
+```bash
 python3
->>> 2 + 2
-4
 >>> print("hello")
 hello
+>>> 2 + 2
+4
 >>> exit()
 ```
 
-**Script** — a `.py` file that runs top to bottom:
+**As a script** — runs top to bottom:
 
 ```bash
 python3 hello.py
 ```
 
-<!-- Exit ticket: "Name the two ways to run Python and one difference between them." -->
+---
+
+# Python vs. Bash
+
+| Idea | Bash | Python |
+|------|------|--------|
+| Variable | `name="Kali"` | `name = "Kali"` (spaces OK) |
+| Use it | `$name` | `name` (no `$`) |
+| Print | `echo "$name"` | `print(name)` |
+| Comment | `# ...` | `# ...` |
+| Blocks | `do`/`done`, `fi` | **indentation** |
+
+> In Python, **indentation is syntax** — not just neatness. Wrong indentation is a real error.
 
 ---
 
-# Python is not Bash
-
-| | Bash | Python |
-|--|------|--------|
-| Variable use | `$name` | `name` |
-| Print | `echo` | `print(...)` |
-| Indentation | cosmetic | **syntax!** |
-| Version | — | use **`python3`** |
-
-⚠️ Indentation **is the code** in Python. Mixed tabs/spaces → `IndentationError`. Pick spaces and stick with it.
-
-<!-- teacher note: Python 3 only. Old tutorials show Python 2 (print without parens) — warn students. -->
-
----
-
-# Variables & types
+# String vs. number
 
 ```python
-name = "Jordan"      # str  (text)
-port = 22            # int  (whole number)
-timeout = 0.5        # float (decimal)
-is_open = True       # bool (True / False)
-
-print(type(port))    # <class 'int'>
+print("22" + "1")     # 221  (text joined)
+print(22 + 1)         # 23   (numbers added)
 ```
 
-Convert between them with `int()` and `str()`:
-
-```python
-int("22") + 1        # 23
-str(22) + "1"        # "221"
-```
-
-<!-- Warm-up: predict print("22" + "1") vs print(22 + 1). Text join = 221, numbers add = 23. -->
+- `"22"` is **text** (a `str`); `22` is a **number** (an `int`).
+- This matters: the `socket` module needs an **int** port, not a string.
 
 ---
 
-# Strings & f-strings
+# Day 1 lab — banner script
 
 ```python
-text = "22,80,443"
-text[0]          # '2'  (index one character)
-text[0:2]        # '22' (slice a piece)
-text.split(",")  # ['22', '80', '443']
-
-p = 80
-print(f"Port {p} is open")   # f-string plugs values in
+#!/usr/bin/env python3
+# hello.py — operator banner
+operator = "Jordan Lee"     # put your name
+target = input("Target IP for this session: ")
+print("==== Port Scanner ====")
+print(f"Operator: {operator}")
+print(f"Target:   {target}")
 ```
 
-> An **f-string** lets you drop a variable straight into text with `{ }`.
+```bash
+python3 hello.py
+```
 
-⚠️ `"22"` (text) is **not** `22` (number) — this matters for ports later!
+Type a **lab** IP. An `IndentationError`? Check lines start at the left margin.
+
+**Exit ticket:** Name the two ways to run Python and one difference.
 
 ---
 
-# Lists & dictionaries
+<!-- _class: lead -->
 
-```python
-ports = [21, 22, 80, 443]      # ordered list
-ports.append(8080)             # add to it
-ports[0]                       # 21
+# Day 2
+## Variables, types, and strings
 
-services = {22: "ssh", 80: "http"}   # key: value pairs
-services[22]                         # "ssh"
-services.get(443, "unknown")         # safe lookup w/ fallback
-```
-
-- **List** `[ ]` — an ordered collection.
-- **Dictionary** `{ }` — look things up by key.
-
-<!-- Warm-up: "How would you store ports 22, 80, 443 together?" -> reveal lists. -->
+<!-- Warm-up: predict "22"+"1" vs 22+1, discuss 221 vs 23. -->
 
 ---
 
-# Conditionals & loops
+# Types and converting
 
 ```python
+port = 22            # int
+name = "ssh"         # str
+ratio = 0.5          # float
+is_open = True       # bool
+
+type(port)           # <class 'int'>
+int("22")            # convert text -> number  -> 22
+str(22)              # convert number -> text  -> "22"
+```
+
+- `int(...)` and `str(...)` convert between text and numbers.
+
+---
+
+# Strings: index and slice
+
+```python
+text = "192.168.56.10"
+text[0]        # '1'   (first character)
+text[0:3]      # '192' (a slice: positions 0,1,2)
+```
+
+- Indexing gets one character; slicing gets a piece.
+- Counting starts at **0**.
+
+---
+
+# Strings: `.split()` and f-strings
+
+```python
+"22,80,443".split(",")     # ['22', '80', '443']  -> a list of strings
+"  hi  ".strip()           # 'hi'  (trims spaces)
+
+target = "192.168.56.10"
+print(f"Scanning {target}")  # f-string plugs the variable in
+```
+
+- `.split()` is how you turn typed text into a list.
+- An **f-string** (prefix `f`) plugs variables straight into the text.
+
+---
+
+# Day 2 lab + exit ticket
+
+- Extend `hello.py` to print an f-string summary using your variables.
+- In the REPL: slice a string, split `"22,80,443"`, build an f-string status line.
+- Journal each new piece of syntax.
+
+**Exit ticket:** Write an f-string that prints `Scanning <target>` using a variable named `target`.
+
+---
+
+<!-- _class: lead -->
+
+# Day 3
+## Lists, dictionaries, conditionals, loops
+
+<!-- Warm-up: "How would you store ports 22, 80, 443 together in one variable?" -->
+
+---
+
+# Lists
+
+```python
+ports = [21, 22, 80, 443]
+ports[0]              # 21   (first item)
+ports.append(8080)    # add to the end
+len(ports)            # how many items
+```
+
+- An **ordered** collection in square brackets. Index from 0.
+
+---
+
+# Dictionaries
+
+```python
+services = {22: "ssh", 80: "http", 443: "https"}
+services[80]                    # 'http'  (look up by key)
+services.get(23, "unknown")     # 'unknown' if key missing
+```
+
+- A dictionary maps a **key** to a **value**.
+- `.get(key, default)` avoids a crash when the key isn't there.
+
+---
+
+# Conditionals: `if` / `elif` / `else`
+
+```python
+if port == 22:
+    print("This is SSH")
+elif port == 80:
+    print("This is HTTP")
+else:
+    print("Some other service")
+```
+
+- `==` tests equality. Note the **colon** and the **indented** body.
+
+---
+
+# Loops
+
+```python
+for port in ports:           # loop over a list
+    print(f"Checking {port}")
+
+n = 1
+while n <= 3:                # loop while a condition holds
+    print(n)
+    n = n + 1
+```
+
+> A port scanner is really just: **loop over a list of ports and decide open/closed.**
+
+---
+
+# Day 3 lab — build the data
+
+```python
+#!/usr/bin/env python3
+# scanner.py — simple TCP port scanner
+# SAFETY: ISOLATED LAB TARGET ONLY.
+
+import socket
+
+ports = [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 3306, 3389, 8080]
+
+services = {
+    21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 53: "dns",
+    80: "http", 110: "pop3", 139: "netbios", 143: "imap",
+    443: "https", 445: "smb", 3306: "mysql", 3389: "rdp", 8080: "http-alt",
+}
+
 for port in ports:
-    if port == 22:
-        print(f"{port} is SSH")
-    elif port == 80:
-        print(f"{port} is HTTP")
-    else:
-        print(f"{port} is something else")
+    name = services.get(port, "unknown")
+    print(f"Will check port {port} ({name})")
 ```
 
-- `if` / `elif` / `else` — branch on a test.
-- `for` loops over a collection; `while` loops while a condition holds.
-- A port scanner is really just: **loop a list of ports → decide open or closed.**
+No network yet — that's **Part 2 complete**.
+
+**Exit ticket:** Write the line that gets the service name for port 80 out of a dict named `services`.
+
+---
+
+<!-- _class: lead -->
+
+# Day 4
+## Functions, the socket module, exceptions
+
+<!-- Warm-up: "Bash checked if a HOST was up. Now we check if a PORT is open. What's the difference?" -->
 
 ---
 
@@ -164,31 +355,58 @@ for port in ports:
 
 ```python
 def check_port(ip, port):
-    # ... do the work ...
-    return True       # hand a result back
+    return f"checking {ip}:{port}"
 
-if check_port("192.168.56.10", 22):
-    print("open!")
+result = check_port("192.168.56.10", 22)   # call it
 ```
 
-- `def` defines a reusable, named block.
-- **Parameters** (`ip`, `port`) are inputs; `return` hands a value back.
-- Define once, call as many times as you like.
-
-<!-- Builds on Bash functions from last week — same idea, new syntax. -->
+- `def` defines it; **parameters** (`ip`, `port`) are inputs.
+- `return` hands a value back to whoever called it.
 
 ---
 
-# The socket module & try/except
+# The `socket` module
 
 ```python
 import socket
 
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)   # a TCP socket
+s.settimeout(0.5)                  # give up after half a second
+result = s.connect_ex((ip, port))  # returns 0 if the port is OPEN
+s.close()
+```
+
+- `AF_INET` = IPv4, `SOCK_STREAM` = TCP.
+- **`connect_ex` returns `0` when the port is open** (not `True`).
+- **`settimeout`** stops it hanging on closed/filtered ports.
+
+---
+
+# `try` / `except`
+
+```python
+try:
+    result = s.connect_ex((ip, port))
+    return result == 0
+except socket.error:
+    return False
+finally:
+    s.close()
+```
+
+- `try`/`except` **catches** an error so one bad port doesn't crash the whole scan.
+- `finally` always runs — here it closes the socket every time.
+
+---
+
+# The `check_port` function (complete)
+
+```python
 def check_port(ip, port):
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(0.5)                  # don't hang on closed ports
+    s.settimeout(0.5)              # don't hang on closed ports
     try:
-        result = s.connect_ex((ip, port))  # 0 == OPEN
+        result = s.connect_ex((ip, port))   # 0 means OPEN
         return result == 0
     except socket.error:
         return False
@@ -196,69 +414,13 @@ def check_port(ip, port):
         s.close()
 ```
 
-- `import` brings in ready-made code (`socket` = network connections).
-- `connect_ex` returns **`0`** when the port is **open**.
-- `try`/`except` **catches errors** so one bad port doesn't crash the scan.
+Returns `True` (open) or `False` (closed/error). Test it on one known-open lab port.
 
-<!-- teacher note: String-vs-int port is the #1 logic bug — connect_ex needs an int. Missing settimeout makes it hang. connect_ex returns 0 for open, not True. -->
+**Exit ticket:** What does `try`/`except` let your program do when an error happens?
 
 ---
 
-<!-- _class: lead -->
-
-# ⚖️ Ethics & Authorization
-
-## Writing the tool yourself does not change the law.
-
-A port scanner is a **real scanning tool** — building it in Python instead of running `nmap` makes no legal difference.
-
-Port scanning a host you don't own or have written permission to test can violate the **CFAA** and state law.
-
-**The only legal target this week: the single isolated host-only lab target.** Confirm with `ip addr` *before every* network run.
-
-<!-- Discussion: "In ~20 lines you can check every port. Why does making the tool yourself NOT change who you may point it at?" What's the difference between writing a scanner and running it on a target? -->
-
----
-
-# Key vocabulary
-
-| Term | Meaning |
-|------|---------|
-| **Interpreter / REPL** | `python3` runs code / live one-line prompt |
-| **Type** | `str`, `int`, `float`, `bool` |
-| **f-string** | Text with values plugged in: `f"Port {p}"` |
-| **List / Dictionary** | `[22, 80]` / `{22: "ssh"}` |
-| **Function** | Reusable block via `def`, takes inputs, `return`s |
-| **Module** | Ready-made code you `import` (e.g., `socket`) |
-| **Port / Timeout** | A service's numbered door / limit before giving up |
-| **Exception / `try`-`except`** | A runtime error / catch it and keep going |
-
----
-
-# Lab launch: build a port scanner
-
-**Platform:** your **Kali VM** on the **host-only / isolated** lab network.
-
-First, every day:
-
-```bash
-ip addr            # confirm you're on the lab subnet (192.168.56.x)
-python3 --version  # Python 3.x.x
-mkdir -p ~/unit06 && cd ~/unit06
-```
-
-You'll build, in parts:
-1. **`hello.py`** — operator banner (variables, `input()`, f-strings)
-2. **`scanner.py` data** — the `ports` list + `services` dictionary
-3. **`scanner.py` scan** — `check_port()` + loop → list open ports, save to file
-
-> If `ip addr` doesn't show your lab subnet, **stop and ask** before running anything.
-
-<!-- Scope check before Day 4: a student on NAT/bridged could scan a real host. Have the answer-key scanner ready for stuck students. -->
-
----
-
-# The scanner, assembled
+# Day 4 lab — the scan loop
 
 ```python
 target = input("Lab target IP to scan: ")
@@ -274,29 +436,141 @@ for port in ports:
 print(f"Done. {len(open_ports)} open port(s): {open_ports}")
 ```
 
-> Loop the ports → call the function → collect & print the open ones.
+Run with `python3 scanner.py` against the **lab target only**.
 
----
-
-# Recap
-
-- Python runs **interactively** or as a **script** — `python3`, indentation is syntax.
-- **Types** matter: `"22"` (str) ≠ `22` (int). Convert with `int()`/`str()`.
-- **Lists** `[ ]` and **dictionaries** `{ }` hold your data.
-- **Functions** (`def` … `return`) + `if`/`for` build the logic.
-- `socket` + **timeout** + `try`/`except` = a reliable scanner.
-- Same skills as Bash week, new language — and **authorization still rules.**
+<!-- #1 logic bug: string vs int ports. If ports came from input()/split() they're strings; connect_ex needs int(). -->
 
 ---
 
 <!-- _class: lead -->
 
-# Exit ticket & discussion
+# Day 5
+## Finish, harden & document the scanner
 
-1. Name the two ways to run Python and one difference.
-2. What does `connect_ex` returning `0` mean — and why use a timeout?
-3. What does `try`/`except` let your program do when an error happens?
+<!-- Warm-up: restate the safety rule — which host, why only that one. -->
 
-**Discuss:** Name one thing your scanner does that makes it **reliable** — and one place it would be **illegal** to run it.
+---
 
-*Submit `hello.py`, `scanner.py`, a screenshot running, your open-port list, and `scan_results.txt`.*
+# Save results to a file
+
+```python
+with open("scan_results.txt", "w") as f:
+    f.write(f"Target: {target}\n")
+    f.write(f"Open ports: {open_ports}\n")
+print("Saved to scan_results.txt")
+```
+
+```bash
+cat scan_results.txt
+```
+
+- `open(..., "w")` opens a file for writing; `with` closes it automatically.
+
+---
+
+# The complete `scanner.py`
+
+```python
+#!/usr/bin/env python3
+# scanner.py — simple TCP port scanner. SAFETY: LAB TARGET ONLY.
+import socket
+
+ports = [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 3306, 3389, 8080]
+services = {21:"ftp",22:"ssh",23:"telnet",25:"smtp",53:"dns",80:"http",
+            110:"pop3",139:"netbios",143:"imap",443:"https",445:"smb",
+            3306:"mysql",3389:"rdp",8080:"http-alt"}
+
+def check_port(ip, port):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
+    try:
+        return s.connect_ex((ip, port)) == 0
+    except socket.error:
+        return False
+    finally:
+        s.close()
+
+target = input("Lab target IP to scan: ")
+open_ports = [p for p in ports if check_port(target, p)]
+for p in open_ports:
+    print(f"  [+] {p}/tcp open ({services.get(p,'unknown')})")
+print(f"Done. {len(open_ports)} open: {open_ports}")
+```
+
+---
+
+# Check your results
+
+- Compare your open-port list to the lab target's **known** open/closed ports.
+- A Metasploitable-style target often shows 21, 22, 23, 25, 53, 80, 139, 445, 3306.
+- A minimal Linux target maybe just 22 and 80. Closed ports correctly print nothing.
+
+**Common bugs:** string vs int port, missing timeout (hangs), inverted `== 0`, bad indentation.
+
+---
+
+# Stretch goals
+
+- Read the target from `sys.argv`: `python3 scanner.py 192.168.56.10`.
+- Let the user enter a port **range** with `range()`.
+- Time the scan with `time.time()`.
+- **Banner grab:** `recv()` a few bytes from an open port; discuss what it reveals.
+- Speed it up with `threading` (faster, but output can arrive out of order).
+- Validate the target looks like an IP before scanning.
+
+---
+
+# Lab deliverables
+
+- Safety reminder in your own words + your assigned lab target IP.
+- Working `hello.py` and `scanner.py` (pasted text).
+- A screenshot of the scanner running.
+- The **open-port list**, cross-checked against the target's known ports.
+- The `scan_results.txt` contents.
+- A **line-by-line annotation** of `scanner.py`.
+- Reflection: one reliability feature + one place running it would be **illegal**.
+
+---
+
+# Recap — what you can now do
+
+- Run Python two ways; use types and convert between them.
+- Strings (index/slice/split/f-strings), lists, dictionaries.
+- `if`/`elif`/`else`, `for`, `while`.
+- Functions with parameters + `return`.
+- `import socket`, `settimeout`, `connect_ex`, `try`/`except`, file I/O.
+- Built a real **TCP port scanner** — for the **lab target only**.
+
+---
+
+# Quiz preview (assessment)
+
+- Two ways to run Python?
+- `print("22" + "1")` outputs what? (`221`)
+- `services[80]` given `{22:"ssh",80:"http"}`? (`"http"`)
+- `connect_ex` returns `0` when the port is…? (open)
+- Spot the bug: `if result != 0: print("open")` — why is it backwards?
+- Write a `check_port(ip, port)` function with timeout + `try`/`except`.
+
+---
+
+<!-- _class: lead -->
+
+# Discussion / exit ticket
+
+"I *wrote* the port scanner myself, so I can test it on any website."
+
+**Correct that — in 2–3 sentences using the words *authorization* and *scope*.**
+
+Name one thing that makes your scanner reliable, and one place it would be **illegal** to run it.
+
+---
+
+<!-- _class: lead -->
+
+# Next up
+
+**Module 2:** Reconnaissance — using these foundations to find and scan, *with permission*.
+
+*Curriculum by AJ Hammond — PNPT, CRTO, OSCP, BSCP*
+github.com/ajm4n · linkedin.com/in/aj-hammond
