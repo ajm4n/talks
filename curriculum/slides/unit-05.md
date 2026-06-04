@@ -27,6 +27,41 @@ Module 1 — Technical Foundations · ~5 class periods
 
 ---
 
+# Two real automation examples
+
+- **Ping sweep:** check all 254 hosts on a subnet in seconds, not by hand.
+- **Repeatable report:** run the exact same checks tomorrow and get the same evidence.
+
+> Computers are fast and never get bored. Let them do the boring part.
+
+---
+
+# By hand vs. by script
+
+```bash
+ping -c 1 192.168.56.1     # one host
+ping -c 1 192.168.56.2     # another... 252 more to go?
+```
+
+- Doing 254 hosts by hand: tedious, slow, easy to skip one.
+- A loop does all 254 perfectly, the same way, every time.
+
+> If you'd repeat it more than twice, it probably belongs in a script.
+
+---
+
+# Bash builds on Unit 04
+
+| Unit 04 (by hand) | Unit 05 (in a script) |
+|-------------------|------------------------|
+| Type `ping ...` | Loop `ping` over 254 hosts |
+| Read output yourself | Test the **exit code** |
+| Repeat manually | `chmod +x`, run it again |
+
+> Same commands — now saved, looped, and reusable.
+
+---
+
 # Learning objectives (1 of 2)
 
 By the end of this unit you can:
@@ -144,6 +179,80 @@ chmod +x hello.sh     # turn ON the execute permission
 
 ---
 
+# Expected first run
+
+```bash
+./hello.sh
+```
+
+```
+Hello from Bash!
+```
+
+- One line of output, then your prompt returns.
+- If you see `Permission denied`, you skipped `chmod +x`.
+
+---
+
+# Why `./` is required
+
+- Typing `hello.sh` makes Bash search the **system PATH** (where `ls`, `cat` live).
+- Your script isn't on the PATH, so Bash can't find it → `command not found`.
+- `./hello.sh` says "run the file right **here** in this folder."
+
+> `./` = "look here, not on the PATH."
+
+---
+
+# Two errors you will see
+
+```bash
+./hello.sh
+bash: ./hello.sh: Permission denied   # forgot chmod +x
+hello.sh
+bash: hello.sh: command not found     # forgot the ./
+```
+
+- **Permission denied** → run `chmod +x hello.sh`.
+- **command not found** → add the `./` in front.
+
+> Read the exact error word-for-word; it tells you which fix you need.
+
+---
+
+# Comments make scripts readable
+
+```bash
+#!/bin/bash
+# sweep.sh — ping a lab subnet (LAB ONLY)
+subnet="192.168.56"   # change to your assigned lab subnet
+```
+
+- Anything after `#` is ignored by Bash — it's a note to humans.
+- Future-you (and your teacher) will thank present-you.
+
+> Comment the *why*, not the obvious *what*.
+
+---
+
+# Check your understanding (Day 1)
+
+1. What does the shebang `#!/bin/bash` tell the system?
+2. What two steps turn a text file into a runnable program?
+3. Why do you need the `./` in `./hello.sh`?
+
+> Answer before the next slide.
+
+---
+
+# Answers (Day 1)
+
+1. Which program should **run** this file — here, Bash.
+2. **`chmod +x`** then run with **`./script.sh`**.
+3. Without `./`, Bash looks on the **PATH** and can't find your file.
+
+---
+
 # Day 1 lab — recon banner (start)
 
 ```bash
@@ -191,6 +300,36 @@ echo "Hi ${name}!"    # braces when next to other text
 
 ---
 
+# Predict the output
+
+```bash
+name="Kali"
+greeting="Hello"
+echo "$greeting, $name!"
+```
+
+```
+Hello, Kali!
+```
+
+- Bash swaps each `$name` for its value, then prints the finished line.
+- Inside double quotes, `$variables` are still expanded.
+
+---
+
+# Why quote your variables
+
+```bash
+file="my notes.txt"
+rm $file        # tries to delete "my" AND "notes.txt"  ✗
+rm "$file"      # deletes the one file "my notes.txt"   ✓
+```
+
+- Without quotes, a space **splits** the value into two words.
+- Quoting `"$file"` keeps it as a single value. Quote by default.
+
+---
+
 # Reading keyboard input
 
 ```bash
@@ -216,6 +355,24 @@ echo "This machine: $myip"
 ```
 
 - `$(command)` runs the command and hands back its text.
+
+---
+
+# Check your understanding (Day 2)
+
+1. Why does `name = "Kali"` fail but `name="Kali"` work?
+2. What does `$(date)` give you?
+3. Why should you write `"$file"` instead of `$file`?
+
+> Predict before flipping.
+
+---
+
+# Answers (Day 2)
+
+1. Bash reads spaces around `=` as separate words; assignment needs **no spaces**.
+2. It runs the `date` command and hands back its **output** (command substitution).
+3. Quotes keep a value with spaces as **one** word instead of splitting it.
 
 ---
 
@@ -279,6 +436,19 @@ fi
 
 ---
 
+# Number comparisons in `[ ]`
+
+| Operator | Means | Example |
+|----------|-------|---------|
+| `-eq` | equal | `[ $# -eq 0 ]` |
+| `-ne` | not equal | `[ $x -ne 1 ]` |
+| `-lt` | less than | `[ $n -lt 5 ]` |
+| `-gt` | greater than | `[ $n -gt 0 ]` |
+
+> Numbers use `-eq`/`-lt`; text uses `=` and `!=`. Mixing them is a common bug.
+
+---
+
 # Exit codes and `$?`
 
 - Every command returns an **exit code** when it finishes.
@@ -291,6 +461,20 @@ echo $?          # 0 if the host replied, non-zero if not
 ```
 
 > `ping` returns `0` when a host answers. That's how we'll detect "UP".
+
+---
+
+# Worked example: exit codes
+
+```bash
+ls /etc > /dev/null
+echo $?          # 0   (succeeded)
+ls /nope 2>/dev/null
+echo $?          # 2   (failed — folder doesn't exist)
+```
+
+- `0` after a success, non-zero after a failure.
+- Read `$?` **immediately** — the next command overwrites it.
 
 ---
 
@@ -374,6 +558,25 @@ done
 
 ---
 
+# Predict the loop output
+
+```bash
+for i in 1 2 3; do
+    echo "Number $i"
+done
+```
+
+```
+Number 1
+Number 2
+Number 3
+```
+
+- The body runs **once per value**, with `$i` taking each in turn.
+- `do` ... `done` mark the start and end of the loop body.
+
+---
+
 # `while` loops
 
 ```bash
@@ -414,6 +617,24 @@ ping -c 1 192.168.56.1 | grep "bytes from"
 
 - The pipe `|` sends one command's output into the next.
 - Everything you learned in Unit 04 still applies inside scripts.
+
+---
+
+# Check your understanding (Day 4)
+
+1. What's the difference between a `for` loop and a `while` loop?
+2. Inside a function, what does `$1` refer to?
+3. What does `seq 1 254` produce?
+
+> Think it through, then check.
+
+---
+
+# Answers (Day 4)
+
+1. `for` repeats a **set number** of times; `while` repeats **as long as** a condition is true.
+2. The **first argument passed to the function**, not the script's `$1`.
+3. The numbers **1 through 254**, one per line.
 
 ---
 
@@ -498,6 +719,33 @@ chmod +x sweep.sh
 - Cross-check the live list against your instructor's **lab inventory**.
 
 **Common bugs:** space around `=`, inverted exit-code logic, wrong subnet, missing `-W 1` (sweep hangs on dead hosts and looks frozen).
+
+---
+
+# Spot the bug: backwards logic
+
+```bash
+ping -c 1 -W 1 "$host" > /dev/null 2>&1
+if [ $? -eq 1 ]; then        # BUG
+    echo "$host is UP"
+fi
+```
+
+- `ping` returns `0` on success, so `-eq 1` is **backwards**.
+- Fix: test `-eq 0` for UP. Every result would otherwise be inverted.
+
+---
+
+# Debugging tip: `bash -x`
+
+```bash
+bash -x sweep.sh
+```
+
+- `-x` prints each line **as it runs**, with variables filled in.
+- You see exactly what Bash saw — great for "why didn't this work?"
+
+> When stuck, slow the script down and watch it think.
 
 ---
 

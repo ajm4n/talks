@@ -91,6 +91,27 @@ By the end of this unit you can:
 
 ---
 
+# Why this matters
+
+- Every other unit taught a **skill** — this one teaches the **product**.
+- In a real job, you may spend **half** your time writing.
+- The report is what a client **keeps, shares, and acts on** for months.
+- It outlives the test — auditors and new staff read it later.
+
+> The hack is a few days. The report is the part that lasts.
+
+---
+
+# How this connects
+
+- Units 7–15: you **found and proved** weaknesses.
+- This unit: you **communicate** them so they get fixed.
+- Next unit (capstone): you do **all of it** end to end.
+
+> You already did the hard part. Now make it count on paper.
+
+---
+
 <!-- _class: lead -->
 
 # ⚖️ Ethics & Authorization
@@ -162,6 +183,58 @@ Did the client get what they paid for? Why not?
 
 ---
 
+# The executive summary
+
+- The **first** page, but often written **last**.
+- Plain language — a busy leader reads it in **two minutes**.
+- Answers: *How exposed are we? What should we fix first?*
+- No commands, no jargon, no acronyms left unexplained.
+
+> If the CEO only reads one page, this is it.
+
+---
+
+# Methodology
+
+- Explains **how** you tested, in phases.
+- recon → scan/enumerate → exploit → (post) → document.
+- Names the **tools** used (nmap, gobuster, etc.).
+- Lets a reviewer trust — and repeat — your work.
+
+> It shows the test was thorough and professional, not lucky.
+
+---
+
+# Appendices
+
+- The "**show your work**" section at the back.
+- Raw `nmap` output, full host lists, long command logs.
+- Links: CVE pages, OWASP references, a CVSS score if used.
+
+> Keeps the findings clean while still proving everything.
+
+---
+
+# Check your understanding
+
+> A client says: *"Just send me the screenshots — skip the writing."*
+
+Why is that a bad deal for the client?
+
+<!-- Pause. Let them reason before the reveal. -->
+
+---
+
+# Answer
+
+- Screenshots alone show **what** but not **how bad** or **how to fix**.
+- A leader can't prioritize; a developer can't reproduce.
+- The **report turns proof into action** — that's the value.
+
+> Evidence without context is a puzzle, not a deliverable.
+
+---
+
 # Guided practice (Day 1)
 
 Sort each scrambled item into the right section:
@@ -229,14 +302,78 @@ Figure 1: login form accepts ' OR 1=1 --  (authentication bypass)
 
 # Severity = likelihood × impact
 
+- **Likelihood:** how *easy* is it to pull off?
+- **Impact:** how *bad* is it if they do?
+- Multiply them in your head: high × high = top of the scale.
+
+```text
+Severity ≈ Likelihood (how easy) × Impact (how bad)
+```
+
+> A scary impact that's nearly impossible to trigger is **not** Critical.
+
+---
+
+# The four severity levels
+
 | Rating | Rough meaning | Example |
 |--------|---------------|---------|
-| **Critical** | Easy AND severe (full system / customer data) | Unauth RCE; SQLi dumping the user table |
-| **High** | Serious; takes some effort or a condition | Stored XSS stealing admin sessions; default admin password |
-| **Medium** | Real risk, limited or harder to exploit | Reflected XSS needing a click; directory listing |
-| **Low** | Minor; little direct impact | Verbose error leaking version; missing header |
+| **Critical** | Easy AND severe (full system / data) | Unauth RCE; SQLi dumping the user table |
+| **High** | Serious; some effort or a condition | Stored XSS stealing admin sessions |
+| **Medium** | Real risk, limited or harder | Reflected XSS needing a click |
+| **Low** | Minor; little direct impact | Verbose error leaking a version |
 
 <!-- Most common student error is severity INFLATION — everything marked Critical. Force a likelihood × impact justification every time. -->
+
+---
+
+# Watch out for inflation
+
+- The #1 student mistake: marking **everything** Critical.
+- A real Critical is **rare** — full takeover, customer data.
+- Inflated ratings make a client **stop trusting** your report.
+
+> If everything is an emergency, nothing is. Rate honestly.
+
+---
+
+# Worked example — Critical
+
+> **Finding:** The login page is vulnerable to SQL injection that returns the full user table.
+
+- **Likelihood:** high — one crafted request, no login needed.
+- **Impact:** high — every customer record exposed.
+- **Severity: Critical.** Easy *and* severe.
+
+---
+
+# Worked example — Low
+
+> **Finding:** An error page prints the web server's exact version number.
+
+- **Likelihood:** high — anyone can trigger the error.
+- **Impact:** low — it only *hints* at what to attack next.
+- **Severity: Low.** Easy but barely harmful on its own.
+
+---
+
+# Check your understanding
+
+> **Finding:** A reflected XSS bug fires only if a victim clicks a crafted link you email them.
+
+What severity, and why?
+
+<!-- Lead them to Medium: needs a victim action, so likelihood drops. -->
+
+---
+
+# Answer
+
+- **Likelihood:** medium — it needs a victim to **click** a special link.
+- **Impact:** real but limited — affects whoever clicks.
+- **Severity: Medium.** The required click lowers likelihood.
+
+> Same bug "stored" (auto-fires for everyone) would rate higher.
 
 ---
 
@@ -306,6 +443,37 @@ How does the language change?
 
 ---
 
+# The altitude idea
+
+- Think of writing at different **altitudes**.
+- **High altitude (executive):** the whole landscape — risk and priority.
+- **Ground level (technical):** the exact path, step by step.
+- Same map, different zoom — and **same truth**.
+
+> You don't change the facts. You change the focus.
+
+---
+
+# Check your understanding
+
+> Which audience needs the exact URL, parameter, and payload to do their job?
+
+Executives or technical staff?
+
+<!-- Technical staff — they fix it and must reproduce it. -->
+
+---
+
+# Answer
+
+- **Technical staff** — they fix the bug and must reproduce it.
+- Executives need risk and priority, not commands.
+- Give each reader exactly what helps *them* act.
+
+> Right detail, right reader. That's the whole skill.
+
+---
+
 # Rules for the executive summary
 
 - **No commands.** No `sqlmap`, no payloads, no code.
@@ -331,11 +499,42 @@ How does the language change?
 
 | Vague (not OK) | Specific (OK) |
 |----------------|---------------|
-| "Make it more secure" | "Use parameterized queries / prepared statements for all DB calls" |
-| "Fix the login" | "Validate input server-side; reject unexpected characters" |
-| "Patch it" | "Change the default admin password; enforce a password policy" |
+| "Make it more secure" | "Use parameterized queries for all DB calls" |
+| "Fix the login" | "Validate input server-side; reject bad characters" |
+| "Patch it" | "Change the default admin password; enforce a policy" |
 
 > Remediation a developer can act on **today**.
+
+---
+
+# A fix vs. a recommendation
+
+- **Remediation** = the precise fix for **this one** finding.
+- **Recommendation** = bigger-picture advice for the whole org.
+- Example fix: "Use prepared statements on `/login`."
+- Example recommendation: "Add input-validation training for devs."
+
+> Fix the hole today; recommend how to stop the next one.
+
+---
+
+# Check your understanding
+
+> A report says: *"Recommendation: improve security posture across all systems."*
+
+What's wrong with it as remediation?
+
+<!-- Lead them to: it's vague and not actionable; nobody knows what to do Monday morning. -->
+
+---
+
+# Answer
+
+- It's **vague** — no one knows what to *do* on Monday.
+- It names no system, no setting, no concrete step.
+- Good remediation is **specific and actionable**.
+
+> "Improve security" is a wish, not a fix.
 
 ---
 
@@ -383,6 +582,97 @@ Read the **report rubric** aloud.
 ```
 
 <!-- This is the exact template students reuse for the Unit 18 capstone. The sample report is the dress rehearsal. -->
+
+---
+
+# Worked report — header
+
+```markdown
+# Penetration Test Report — Unit 12 Web Lab
+Tester: A. Student   Date: 2026-05-01
+Scope & authorization: Authorized test of the Unit 12
+practice web app, with instructor permission. No other
+systems were tested.
+```
+
+> Start every report by proving it was **authorized and in scope**.
+
+---
+
+# Worked report — executive summary
+
+```markdown
+## 1. Executive summary
+The login page lets an attacker read the entire customer
+list without a password. This is our most urgent issue;
+we recommend fixing it this week before any other work.
+```
+
+- Plain language. No `sqlmap`, no payloads, no acronyms.
+
+> A principal could read this and know how worried to be.
+
+---
+
+# Worked report — methodology
+
+```markdown
+## 2. Methodology
+We tested in phases: recon, then scanning with nmap,
+then enumerating pages with gobuster, then manually
+testing inputs. All work stayed within the approved scope.
+```
+
+> Short, honest, and shows the work was systematic.
+
+---
+
+# Worked report — the finding
+
+```markdown
+## 3. Findings
+### Finding 1 — SQL injection on the login form
+- Affected: https://lab.local/login
+- Severity: Critical — easy to run, exposes all user data
+- Evidence: Figure 1 — input ' OR 1=1 -- returns all rows
+- Impact: An attacker could read every customer record.
+```
+
+> Title, asset, justified severity, evidence, impact — all five.
+
+---
+
+# Worked report — remediation
+
+```markdown
+## 4. Remediation & recommendations
+- Finding 1 fix: Use parameterized queries on all
+  database calls; validate input server-side.
+- Recommendation: Add secure-coding training for the
+  development team.
+```
+
+> The fix a developer can ship today, plus the bigger lesson.
+
+---
+
+# Check your understanding
+
+> In the worked report, which section names the **exact payload** `' OR 1=1 --`?
+
+And which section must **never** show it?
+
+<!-- Findings (evidence) shows it; the executive summary must not. -->
+
+---
+
+# Answer
+
+- **Findings → Evidence** shows the exact payload so it's reproducible.
+- The **Executive summary** must never show commands or payloads.
+- Same truth, different altitude — pick the right section.
+
+> Detail belongs in Findings; plain risk belongs up top.
 
 ---
 
@@ -446,6 +736,36 @@ Next week, each **team** will:
 - You'll get: team assignment, target list, checklist, due dates.
 
 > Restate the safety rule: the approved list is the **entire** universe of legal targets.
+
+---
+
+# Why accuracy protects everyone
+
+- **Exaggerate** → the client wastes money on a fake emergency.
+- **Hide** → a real hole stays open and customers get hurt.
+- Either way you **break the trust** you were paid for.
+
+> The client acts on your words. Make them true.
+
+---
+
+# Check your understanding
+
+> You found a Critical bug, but it was *embarrassingly* easy — a default password left unchanged.
+
+Do you dress it up or downplay it?
+
+<!-- The unit's ethics anchor. Neither — report it accurately. -->
+
+---
+
+# Answer
+
+- **Neither.** Report it accurately as **Critical**, with evidence.
+- "Easy" doesn't mean "minor" — a default password is a real door.
+- Recommend the fix: change it, enforce a password policy.
+
+> Honesty outranks ego. The client's safety comes first.
 
 ---
 

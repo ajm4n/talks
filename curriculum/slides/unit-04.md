@@ -27,6 +27,28 @@ Module 1 — Technical Foundations · ~5 class periods
 
 ---
 
+# GUI vs. command line
+
+| | Mouse (GUI) | Command line (CLI) |
+|--|------------|--------------------|
+| Speed | One click at a time | Many files at once |
+| Repeat | Click again, by hand | Save it, run it again |
+| Remote | Needs a desktop | Works over SSH |
+
+> The CLI is how you control a machine you can't see.
+
+---
+
+# The mindset for this unit
+
+- The blank prompt is normal. **Type, read the output, adjust.**
+- Nobody memorizes every command — pros look things up constantly.
+- Small wins stack: each command you learn is a building block.
+
+> Treat errors as feedback, not failure. The shell is talking to you.
+
+---
+
 # Learning objectives (1 of 2)
 
 By the end of this unit you can:
@@ -201,6 +223,59 @@ cd                # also goes home (no argument)
 
 ---
 
+# Worked walkthrough: getting around
+
+```bash
+pwd            # /home/student   (where am I?)
+cd /etc        # jump to system config
+pwd            # /etc            (confirm the move)
+cd ..          # go up one level
+pwd            # /               (now at the root)
+```
+
+- Run `pwd` after every `cd` until it feels automatic.
+
+---
+
+# Tab completion saves you
+
+- Press **Tab** and the shell finishes a name for you.
+- Type `cd /et` then **Tab** → it completes to `cd /etc/`.
+- Press **Tab twice** to list all matching choices.
+
+> Tab completion means fewer typos and less typing. Use it constantly.
+
+---
+
+# History and editing shortcuts
+
+- **Up arrow** scrolls back through commands you already ran.
+- **Ctrl+C** cancels a command that's running or stuck.
+- **Ctrl+L** clears the screen (same as `clear`).
+- `history` prints a numbered list of your recent commands.
+
+> Re-run a long command with Up arrow instead of retyping it.
+
+---
+
+# Check your understanding (Day 1)
+
+1. Which command prints the folder you're in right now?
+2. What does `cd ..` do?
+3. What does `~` stand for in a path?
+
+> Think it through before the next slide.
+
+---
+
+# Answers (Day 1)
+
+1. **`pwd`** — print working directory.
+2. `cd ..` moves you **up one level** to the parent folder.
+3. `~` is a shortcut for **your home folder** (e.g., `/home/student`).
+
+---
+
 # Day 1 guided practice
 
 Class "scavenger walk" — call out `pwd` at each stop:
@@ -226,6 +301,21 @@ pwd           # confirm
 ## Working with files & finding things
 
 <!-- Warm-up: recall race — command to (a) list files, (b) change folders, (c) show where you are. -->
+
+---
+
+# Wildcards (globbing)
+
+```bash
+ls *.txt          # everything ending in .txt
+ls report?.log    # report1.log, reportA.log (one char)
+rm temp*          # everything starting with temp
+```
+
+- `*` matches any characters · `?` matches exactly one.
+- The **shell** expands wildcards before the command even runs.
+
+> ⚠️ Always `ls` a wildcard first to see what it matches before you `rm` it.
 
 ---
 
@@ -295,6 +385,22 @@ which python3              # full path of a command's program
 
 ---
 
+# Worked example: `find` by name
+
+```bash
+find /home -name "*.conf"
+```
+
+```
+/home/student/.config/app.conf
+/home/student/old/backup.conf
+```
+
+- `find <where> -name "<pattern>"` walks the tree and prints matches.
+- Quote the pattern so the **shell** doesn't expand `*` too early.
+
+---
+
 # Searching inside files: `grep`
 
 ```bash
@@ -305,6 +411,68 @@ grep -i "error" log.txt        # case-insensitive
 
 - `find` finds **files**; `grep` finds **text inside** files.
 - This pair is the heart of the Bandit wargame.
+
+---
+
+# Worked example: `grep` output
+
+```bash
+grep "secret" notes.txt
+```
+
+```
+the secret word is hydrogen
+my second secret is buried here
+```
+
+- `grep` prints **only the matching lines**, not the whole file.
+- Add `-n` to also show the **line number** of each match.
+
+---
+
+# Useful `grep` options
+
+```bash
+grep -n "error" log.txt    # show line numbers
+grep -c "error" log.txt    # count matching lines
+grep -v "debug" log.txt    # INVERT: lines WITHOUT "debug"
+```
+
+- `-i` ignore case · `-r` search folders · `-n` line numbers.
+- `-v` is the odd one out: it shows everything that **doesn't** match.
+
+---
+
+# Counting things: `wc`
+
+```bash
+grep "fail" log.txt | wc -l
+```
+
+```
+12
+```
+
+- `wc -l` counts **lines**; `-w` words; `-c` characters.
+- Piped after `grep`, it answers "how many matches?" in one line.
+
+---
+
+# Check your understanding (Day 2)
+
+1. Which tool finds **files by name**, and which finds **text inside** files?
+2. Why is `rm` more dangerous than dragging a file to the trash?
+3. What does `grep -r "flag" .` search?
+
+> Predict before flipping.
+
+---
+
+# Answers (Day 2)
+
+1. **`find`** finds files by name; **`grep`** finds text inside files.
+2. `rm` deletes **immediately, with no recycle bin and no undo**.
+3. The word `flag`, searched **recursively** in the current folder (`.`) and everything under it.
 
 ---
 
@@ -366,6 +534,16 @@ The first 10 characters are the key:
 
 ---
 
+# Permissions analogy: the building
+
+- **Owner** = the person who rents the apartment.
+- **Group** = the family members with a key.
+- **Others** = everyone else in the world.
+
+> Each gets their own set of keys: read (look in), write (rearrange), execute (use the appliances).
+
+---
+
 # Worked example: decode it
 
 `-rw-r--r--`
@@ -382,6 +560,45 @@ Nobody can execute it. This is a typical text file.
 
 ---
 
+# Worked example: a script
+
+`-rwxr-x---`
+
+| Who | Bits | Can do |
+|-----|------|--------|
+| Owner | `rwx` | read + write + run |
+| Group | `r-x` | read + run |
+| Others | `---` | nothing |
+
+The leading `-` means file; an `x` means it can be **run** as a program.
+
+---
+
+# Permissions as numbers
+
+Each group's `rwx` adds up to a single digit:
+
+| Bits | Math | Number |
+|------|------|--------|
+| `rwx` | 4+2+1 | **7** |
+| `rw-` | 4+2 | **6** |
+| `r-x` | 4+1 | **5** |
+| `r--` | 4 | **4** |
+
+- So `chmod 750` = owner `rwx`, group `r-x`, others nothing.
+
+---
+
+# Why permissions matter in security
+
+- A world-writable script can be **edited by anyone** — a backdoor waiting to happen.
+- A readable password file leaks secrets to every user on the box.
+- Finding **wrong** permissions is a real way attackers escalate to root.
+
+> "Who can read, write, or run this?" is a question you'll ask all course.
+
+---
+
 # Changing permissions: `chmod`
 
 ```bash
@@ -393,6 +610,21 @@ ls -l                   # confirm the change
 
 - Two styles: **symbolic** (`+x`, `-w`) and **numeric** (`644`, `755`).
 - `chown user file` changes who **owns** a file (usually needs `sudo`).
+
+---
+
+# Worked example: `chmod` in action
+
+```bash
+ls -l script.sh
+-rw-r--r-- 1 student student 64 Jun 4 script.sh
+chmod +x script.sh
+ls -l script.sh
+-rwxr-xr-x 1 student student 64 Jun 4 script.sh
+```
+
+- Before: no `x`, can't run. After `chmod +x`: `x` appears for everyone.
+- Confirm **every** permission change with a quick `ls -l`.
 
 ---
 
@@ -439,6 +671,24 @@ kill -9 4821              # force it to stop
 
 ---
 
+# Check your understanding (Day 3)
+
+1. In `-rwxr-x---`, what can **others** do?
+2. What number is `rw-r--r--` in `chmod` digits?
+3. Why shouldn't you run every command with `sudo`?
+
+> Decode it on paper first.
+
+---
+
+# Answers (Day 3)
+
+1. **Nothing** — the last three bits are `---`.
+2. **644** (owner 6, group 4, others 4).
+3. **Least privilege:** one mistake as root can break the whole system. Use admin power only when truly needed.
+
+---
+
 # Day 3 practice
 
 - Run `ls -l` and decode permissions for several files.
@@ -473,6 +723,29 @@ ps aux | grep ssh       # all processes, filtered to ssh
 
 ---
 
+# Building a pipeline step by step
+
+```bash
+ps aux                      # 1. every process (huge list)
+ps aux | grep ssh           # 2. keep only lines with "ssh"
+ps aux | grep ssh | wc -l   # 3. count those lines
+```
+
+- Each `|` hands the output left → right.
+- Build pipelines **one stage at a time**, checking output as you go.
+
+---
+
+# Three streams: in, out, error
+
+- **stdin** (0) — input · **stdout** (1) — normal output · **stderr** (2) — errors.
+- `>` redirects stdout; `2>` redirects errors separately.
+- `2>/dev/null` throws errors away while keeping real output.
+
+> You'll use `2>/dev/null` to silence "Permission denied" in Bandit.
+
+---
+
 # Redirection: `>` `>>` `<`
 
 ```bash
@@ -486,6 +759,22 @@ grep "x" < input.txt    # feed a file in as input
 | `>` | Send output to a file, **replacing** it |
 | `>>` | Send output to a file, **adding to** the end |
 | `<` | Take input **from** a file |
+
+---
+
+# Worked example: redirect then read
+
+```bash
+ls /etc > files.txt      # write the listing to a file
+wc -l files.txt          # how many lines did we save?
+```
+
+```
+   220 files.txt
+```
+
+- Nothing prints from the `ls` — it went **into** the file instead.
+- `>` overwrites; run it again and the old contents are replaced.
 
 ---
 
@@ -515,6 +804,24 @@ grep --help
 > You will never memorize every command and option. Knowing **how to look it up** is what makes you self-sufficient.
 
 - Reach for `man` / `--help` *before* asking — and note what you learned.
+
+---
+
+# Check your understanding (Day 4)
+
+1. What does the pipe `|` do?
+2. Difference between `>` and `>>`?
+3. What does `2>/dev/null` hide, and why is that useful?
+
+> Answer before the reveal.
+
+---
+
+# Answers (Day 4)
+
+1. Sends one command's **output** into the next command's **input**.
+2. `>` **overwrites** the file; `>>` **appends** to the end.
+3. It discards **error messages** (stderr), so a noisy search shows only real results.
 
 ---
 
@@ -602,6 +909,80 @@ ssh bandit1@bandit.labs.overthewire.org -p 2220
 | 11 → 12 | ROT13 cipher — `cat data.txt \| tr 'A-Za-z' 'N-ZA-Mn-za-m'` |
 
 <!-- Don't hand out answers. These are intended techniques so you can guide. -->
+
+---
+
+# Worked level: a filename of `-`
+
+```bash
+ls            # shows a file literally named  -
+cat -         # SEEMS to hang... why?
+cat ./-       # this works
+```
+
+- `cat -` reads from the **keyboard** (stdin), so it just waits.
+- A path like `./-` makes clear you mean the **file** named `-`.
+
+---
+
+# Worked level: which file is text?
+
+```bash
+file ./*          # ask what type each file is
+./-file03: ASCII text
+./-file07: data
+cat ./-file03     # read the one that's text
+```
+
+- `file` reports the **type** of each file, not its name.
+- Read only the human-readable one; ignore the binary "data" files.
+
+---
+
+# Worked level: the unique line
+
+```bash
+sort data.txt | uniq -u
+```
+
+- `sort` groups identical lines next to each other.
+- `uniq -u` prints only the lines that appear **exactly once**.
+- Together they surface the one password hiding in noise.
+
+---
+
+# Worked level: base64 decode
+
+```bash
+base64 -d data.txt
+```
+
+```
+The password is Ab3...
+```
+
+- `base64` is **encoding**, not encryption — anyone can reverse it.
+- `-d` means decode. The readable password falls right out.
+
+> Encoding hides nothing from someone who knows the format.
+
+---
+
+# Check your understanding (Day 5)
+
+1. What does the `file` command tell you?
+2. Is base64 a form of encryption? Why does that matter?
+3. Why log the **command**, not just the password?
+
+> Reason it out before the reveal.
+
+---
+
+# Answers (Day 5)
+
+1. The **type** of a file (ASCII text, data/binary, image, etc.).
+2. **No** — it's reversible encoding. It hides nothing from anyone who knows the format.
+3. Passwords **rotate**; the reusable skill is the command and your reasoning.
 
 ---
 

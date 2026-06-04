@@ -21,7 +21,7 @@ You found the open doors in Unit 08. Now you learn *exactly* what's behind each 
 
 - Unit 07 — Passive recon (OSINT): read public records.
 - Unit 08 — Active recon & scanning: found live hosts, open ports, versions.
-- **Unit 09 — Vuln scanning & enumeration** ← this week, the final unit of the module.
+- **Unit 09 — Vuln scanning & enumeration** ← this week, the final unit.
 
 > This week: turn open ports into detailed findings and a prioritized **attack plan** — then write the **Recon mini-project**.
 
@@ -53,10 +53,10 @@ By the end of this unit you can:
 
 | Term | Meaning |
 |------|---------|
-| **Scanning** | Finding live hosts and open ports (Unit 08) — "what's there." |
-| **Enumeration** | Digging into a service for users, shares, versions, config — "what exactly is it." |
-| **Vulnerability scanning** | Checking services/versions against known weaknesses — "what's weak." |
-| **Vulnerability** | A weakness that could be exploited to harm CIA (confidentiality, integrity, availability). |
+| **Scanning** | Find live hosts and open ports — "what's there." |
+| **Enumeration** | Dig into a service for users/shares/versions — "what is it." |
+| **Vulnerability scanning** | Check versions against known weaknesses — "what's weak." |
+| **Vulnerability** | A weakness that could be exploited to harm CIA. |
 
 ---
 
@@ -64,12 +64,10 @@ By the end of this unit you can:
 
 | Term | Meaning |
 |------|---------|
-| **Service enumeration** | Probing a specific service (HTTP/FTP/SMB/SSH) for usable detail. |
-| **SMB** | Server Message Block — Windows file/printer sharing; often enumerable. |
-| **NSE** | Nmap Scripting Engine — small scripts that automate enumeration/detection/vuln checks. |
-| **Automated vuln scanner** | A tool (Nessus, OpenVAS) that scans broadly and flags possible vulnerabilities. |
-| **Nessus Essentials** | A free-for-limited-use vuln scanner (IP-capped). |
-| **OpenVAS / Greenbone** | A free, open-source vuln scanner. |
+| **Service enumeration** | Probing a specific service for usable detail. |
+| **SMB** | Windows file/printer sharing; often enumerable. |
+| **NSE** | Nmap Scripting Engine — scripts that automate checks. |
+| **Automated scanner** | Nessus / OpenVAS — scans broadly, flags possible vulns. |
 
 ---
 
@@ -77,11 +75,11 @@ By the end of this unit you can:
 
 | Term | Meaning |
 |------|---------|
-| **CVE** | Common Vulnerabilities and Exposures — a public ID for one known flaw (e.g., CVE-2011-2523). |
+| **CVE** | Public ID for one known flaw (e.g., CVE-2011-2523). |
 | **CVSS** | A 0–10 severity score (higher = more severe). |
-| **False positive** | A finding a tool reports that turns out not to be real/exploitable. |
-| **Attack surface** | All the points where a target could be probed or attacked. |
-| **Attack plan** | A prioritized list of what an attacker would try, and why. |
+| **False positive** | A reported finding that isn't real/exploitable. |
+| **Attack surface** | All the points where a target could be attacked. |
+| **Attack plan** | A prioritized list of what to try, and why. |
 
 ---
 
@@ -110,11 +108,21 @@ That digging is **enumeration**.
 
 | Step | Question it answers |
 |---|---|
-| **Scanning** (Unit 08) | "What's there?" — live hosts, open ports |
-| **Enumeration** | "What *exactly* is it?" — users, shares, versions, config |
-| **Vuln scanning** | "Which of these is *weak*?" — match versions to known flaws |
+| **Scanning** (Unit 08) | "What's there?" — hosts, open ports |
+| **Enumeration** | "What *exactly* is it?" — users, shares, versions |
+| **Vuln scanning** | "Which is *weak*?" — match to known flaws |
 
-> Each step uses the output of the last. You can't enumerate a service you haven't found, and you can't map a vuln without the version.
+> Each step uses the output of the last.
+
+---
+
+# You can't skip a step
+
+- You can't **enumerate** a service you haven't **found**.
+- You can't **map a vuln** without knowing the service and **version**.
+- Skipping ahead = guessing in the dark.
+
+> Recon is a ladder. Each rung depends on the one below.
 
 ---
 
@@ -134,14 +142,43 @@ That digging is **enumeration**.
 
 ```bash
 curl -I http://<target-ip>/          # server header
-curl http://<target-ip>/robots.txt   # disallowed paths (if present)
+curl http://<target-ip>/robots.txt   # disallowed paths
 ```
 
 - Read the **server header** (e.g., Apache 2.2.8).
 - Check **robots.txt** for paths someone tried to hide.
-- Browse the site for apps, login pages, directory listings.
 
 > Web apps (DVWA, Mutillidae, phpinfo) = a rich attack surface for Module 3.
+
+---
+
+# Reading the HTTP server header
+
+```text
+HTTP/1.1 200 OK
+Server: Apache/2.2.8 (Ubuntu)
+X-Powered-By: PHP/5.2.4
+```
+
+- `Server:` → web software + version (a CVE lead).
+- `X-Powered-By:` → the app language and version.
+
+> Two header lines, two version leads.
+
+---
+
+# What robots.txt accidentally reveals
+
+```text
+User-agent: *
+Disallow: /admin/
+Disallow: /backup/
+```
+
+- `robots.txt` asks search engines **not** to index paths.
+- It does **not** hide them — it lists exactly where to look.
+
+> A "do not enter" sign that names every interesting door.
 
 ---
 
@@ -175,7 +212,7 @@ curl http://<target-ip>/robots.txt   # disallowed paths (if present)
 # FTP enumeration (port 21)
 
 ```bash
-ftp <target-ip>      # user: anonymous   password: (anything)
+ftp <target-ip>      # user: anonymous   pass: (anything)
 ```
 
 - Try an **anonymous login** — does it work?
@@ -183,6 +220,16 @@ ftp <target-ip>      # user: anonymous   password: (anything)
 - Note the **banner/version** (e.g., `vsFTPd 2.3.4`).
 
 > Anonymous access = an open door. What's inside is the finding.
+
+---
+
+# Why anonymous FTP is so dangerous
+
+- "Anonymous" means **no real account** is needed to log in.
+- Admins enable it for convenience and **forget** what's in the folder.
+- Backups, configs, and customer files routinely leak this way.
+
+> The version is a lead; the exposed files are the finding.
 
 ---
 
@@ -196,7 +243,23 @@ enum4linux -a <target-ip>          # shares + users + more
 - **Shares**: e.g., `tmp`, `IPC$`.
 - **User accounts**: e.g., `msfadmin`.
 
-> This is the classic lesson: manual SMB enumeration finds **users and shares a port scan never could.**
+> The classic lesson: manual SMB enumeration finds **users and shares a port scan never could.**
+
+---
+
+# Reading enum4linux output
+
+```text
+[+] Share: tmp        (read/write)
+[+] Share: IPC$
+[+] User: msfadmin
+[+] User: service
+```
+
+- **Shares** = folders you might browse.
+- **Users** = login names to remember for later attacks.
+
+> Each username is a lead; each writable share is a risk.
 
 ---
 
@@ -222,9 +285,31 @@ enum4linux -a <target-ip>
 nc <target-ip> 22
 ```
 
-**Record:** whether anonymous FTP worked and what was visible; SMB shares/users found; SSH version. Note which findings a **plain port scan would have missed**.
+**Record:** did anonymous FTP work; SMB shares/users; SSH version. Note which findings a **plain port scan would miss**.
 
 <!-- Demo anonymous FTP and an SMB share listing first; then students do it. -->
+
+---
+
+# Check your understanding
+
+> A port scan shows `445/tcp open`. Manual SMB enumeration adds: shares `tmp` and `IPC$`, users `msfadmin` and `service`.
+
+What did **enumeration** add that the scan alone could not?
+
+Think before the next slide.
+
+---
+
+# Answer
+
+The scan only proved **the port was open**.
+
+Enumeration added the **content**:
+- **Share names** (`tmp`, `IPC$`) you could browse.
+- **Usernames** (`msfadmin`, `service`) for later attacks.
+
+> "Open" is the door; enumeration tells you what's behind it.
 
 ---
 
@@ -253,20 +338,42 @@ It can. They're called **NSE scripts** — the Nmap Scripting Engine.
 
 ---
 
-# nmap NSE scripts
+# NSE script categories
+
+| Category | What it does |
+|---|---|
+| `default` | Safe, useful scripts (same as `-sC`) |
+| `safe` | Won't crash or change the target |
+| `vuln` | Checks for known vulnerabilities |
+
+> Pick a category, or name a specific script.
+
+---
+
+# Running specific NSE scripts
 
 ```bash
 nmap --script ftp-anon -p 21 <target-ip>
-nmap --script smb-os-discovery,smb-enum-shares -p 139,445 <target-ip>
+nmap --script smb-enum-shares -p 139,445 <target-ip>
+```
+
+- `ftp-anon` → "Anonymous FTP login allowed."
+- `smb-enum-shares` → lists the SMB shares.
+
+> Each script automates a check you could do by hand.
+
+---
+
+# The `--script vuln` run
+
+```bash
 nmap --script vuln -p <ports> <target-ip>
 ```
 
-- Script **categories**: `default`, `safe`, `vuln`.
-- `ftp-anon` → "Anonymous FTP login allowed."
-- `smb-enum-shares` → lists the shares.
-- `--script vuln` → safe vuln-detection checks.
+- Runs **vuln-detection** scripts against the open ports.
+- May flag real issues — **and false positives**.
 
-> Compare NSE output to your **manual** findings — do they agree?
+> Compare every NSE result to your **manual** findings. Do they agree?
 
 <!-- The --script vuln run may flag false positives. That's a feature for teaching, not a bug. -->
 
@@ -279,10 +386,19 @@ nmap --script vuln -p <ports> <target-ip>
 | **Nessus Essentials** | Free tier, registration-gated, IP-limited |
 | **OpenVAS / Greenbone** | Free, fully open-source |
 
-- **Strength:** broad coverage, fast, thousands of checks.
-- **Weakness:** noisy, **false positives**, no human context.
-
 > They flag *possible* vulnerabilities — a human still verifies.
+
+---
+
+# Scanners: strengths vs weaknesses
+
+| Strength | Weakness |
+|---|---|
+| Broad coverage | Noisy on the network |
+| Fast | Produces **false positives** |
+| Thousands of checks | No human context |
+
+> Great for breadth, weak on judgment. Use them, then verify.
 
 ---
 
@@ -291,13 +407,34 @@ nmap --script vuln -p <ports> <target-ip>
 **Part C — NSE scripts:**
 ```bash
 nmap --script ftp-anon -p 21 <target-ip>
-nmap --script smb-os-discovery,smb-enum-shares -p 139,445 <target-ip>
+nmap --script smb-enum-shares -p 139,445 <target-ip>
 ```
-Record what each reported; compare to your manual findings.
+Record what each reported; compare to manual findings.
 
-**Part D (optional) — automated scan:** run Nessus/OpenVAS, **or** analyze the instructor's sample report. Record top findings + CVSS; mark suspected false positives.
+**Part D (optional):** run Nessus/OpenVAS **or** analyze the instructor's sample report. Note top findings + CVSS; mark suspected false positives.
 
 <!-- Nessus/OpenVAS setup is the biggest time-sink. Have the awareness fallback (instructor-captured report) ready. -->
+
+---
+
+# Check your understanding
+
+> Your `--script vuln` run flags a "possible" vulnerability, but it also says `CONFIDENCE: low` and you can't reproduce it manually.
+
+How should you record it?
+
+Think before the next slide.
+
+---
+
+# Answer
+
+Record it as a **likely false positive** — a *lead*, not a fact.
+
+- Note the scanner flagged it but **manual checks didn't confirm** it.
+- Propose a verification step (check the version/config/behavior).
+
+> A "critical" you can't reproduce is a lead, not a finding.
 
 ---
 
@@ -330,9 +467,22 @@ Look it up. A specific version maps to specific, public **CVEs**.
 
 - **CVE** = Common Vulnerabilities and Exposures — a public ID for one known flaw (e.g., `CVE-2011-2523`).
 - **CVSS** = a **0–10 severity score** (higher = worse).
-- A CVE entry tells you: what it is, affected versions, and how severe.
+- A CVE entry tells you: what it is, affected versions, how severe.
 
 > Map your **starred versions** from Unit 08 to their CVEs.
+
+---
+
+# What CVSS scores mean
+
+| CVSS | Severity |
+|------|----------|
+| 0.1–3.9 | Low |
+| 4.0–6.9 | Medium |
+| 7.0–8.9 | High |
+| 9.0–10.0 | Critical |
+
+> A 9.8 demands attention; a 3.1 can usually wait.
 
 ---
 
@@ -340,7 +490,7 @@ Look it up. A specific version maps to specific, public **CVEs**.
 
 | Service & version | CVE | What it is |
 |---|---|---|
-| vsftpd 2.3.4 | CVE-2011-2523 | Backdoor command execution (CVSS ~10) |
+| vsftpd 2.3.4 | CVE-2011-2523 | Backdoor RCE (CVSS ~10) |
 | Samba 3.x | CVE-2007-2447 | "username map script" RCE |
 | UnrealIRCd 3.2.8.1 | CVE-2010-2075 | Backdoor |
 
@@ -350,13 +500,34 @@ Look it up. A specific version maps to specific, public **CVEs**.
 
 ---
 
+# From version to CVE — the workflow
+
+1. Take a **starred version** (e.g., `vsftpd 2.3.4`).
+2. Search it in a CVE database or vendor advisory.
+3. Read the **CVE ID**, affected versions, and **CVSS**.
+4. Record it in your mapping table.
+
+> A version string becomes a measured, citable risk.
+
+---
+
 # False positives
 
 - A **false positive** = a "vulnerability" a tool reports that **isn't real or exploitable**.
 - Scanners over-report — they match patterns without context.
-- **Verify manually** before trusting a finding: check the version, the config, the actual behavior.
+- **Verify manually** before trusting a finding.
 
 > A "critical" finding you can't reproduce is a lead, not a fact.
+
+---
+
+# How to verify a finding
+
+- **Check the version** — does it actually match the CVE's affected range?
+- **Check the config** — is the vulnerable feature even enabled?
+- **Check the behavior** — does it respond the way the CVE describes?
+
+> Three checks turn a scanner flag into a confident finding.
 
 ---
 
@@ -364,23 +535,53 @@ Look it up. A specific version maps to specific, public **CVEs**.
 
 Turn **verified** findings into a prioritized plan:
 
-| Service & version | Port | CVE(s) | CVSS | True positive? | Why it matters |
-|---|---|---|---|---|---|
-| vsftpd 2.3.4 | 21 | CVE-2011-2523 | ~10 | Yes | Backdoor → likely first target |
+| Service & version | CVE | CVSS | Confirmed? | Why it matters |
+|---|---|---|---|---|
+| vsftpd 2.3.4 | CVE-2011-2523 | ~10 | Yes | Backdoor → first target |
 
-> Prioritize high-CVSS, **confirmed** findings. List "what I'd try first, and why." **No exploitation.**
+> Prioritize high-CVSS, **confirmed** findings. **No exploitation.**
+
+---
+
+# How to prioritize
+
+- **Severity first:** high CVSS rises to the top.
+- **Confidence next:** confirmed beats unverified.
+- **Access value:** does it likely grant a foothold or admin?
+
+> "What I'd try first, and why" — that's the plan, nothing more.
 
 ---
 
 # Lab Part E — CVE mapping + attack plan
 
 1. **Map** 2–3 starred versions to their CVE(s) and CVSS.
-2. Fill in the CVE-mapping table; flag at least one likely **false positive** and propose manual verification.
-3. **Draft a prioritized attack plan** — order what an attacker would try first and why.
+2. Fill the CVE-mapping table; flag one likely **false positive** + propose verification.
+3. **Draft a prioritized attack plan** — what an attacker would try first and why.
 
 > **Do not exploit anything.** We stop at the plan.
 
 <!-- Hold the line: any actual exploitation is a scope violation; redirect to Module 3. -->
+
+---
+
+# Check your understanding
+
+> Two confirmed findings: an FTP backdoor (CVSS ~10) and an outdated web library (CVSS 5.3).
+
+Which goes first in your attack plan, and why?
+
+Think before the next slide.
+
+---
+
+# Answer
+
+The **FTP backdoor** goes first.
+
+- **Higher CVSS** (~10 vs 5.3) → more severe.
+- A backdoor likely grants a **direct foothold**.
+- Both are confirmed, so severity + access value decide order.
 
 ---
 
@@ -419,18 +620,30 @@ The capstone of the whole module — a professional **Recon Report** combining:
 - **Unit 08** — active scanning results
 - **Unit 09** — enumeration, vuln findings, CVE mappings, attack plan
 
-> This is a graded **Project** (25% category). Get the rubric **before** you start.
+> A graded **Project** (25% category). Get the rubric **before** you start.
 
 ---
 
 # Recon report — structure
 
-1. **Scope statement** confirming authorization (planning only, no exploitation)
-2. **Methodology** — recon → scan → enumerate → vuln-map phases
-3. **Findings** — each with evidence, version/CVE, and severity
-4. **Recommended remediations** — specific, actionable fixes per finding
+1. **Scope statement** confirming authorization (planning only)
+2. **Methodology** — recon → scan → enumerate → vuln-map
+3. **Findings** — each with evidence, version/CVE, severity
+4. **Recommended remediations** — specific fixes per finding
 
 > One professional document that tells the whole story.
+
+---
+
+# Writing a strong finding
+
+Each finding should include:
+
+- **What** it is + **evidence** (a scan line, a banner).
+- The **version** and **CVE**, with **CVSS** severity.
+- **Why it matters** — the risk in plain language.
+
+> Evidence + severity + impact = a finding a reader can trust.
 
 ---
 
@@ -440,7 +653,7 @@ The capstone of the whole module — a professional **Recon Report** combining:
 |---------|-------------|
 | vsftpd 2.3.4 (backdoored) | Upgrade/replace FTP server |
 | Anonymous FTP allowed | Disable anonymous login |
-| Open SMB shares + users exposed | Restrict shares, require auth |
+| Open SMB shares + users | Restrict shares, require auth |
 | Old OpenSSH version | Patch to a supported release |
 
 > Every finding gets a fix. That's what makes it a **report**, not a brag.
@@ -453,7 +666,7 @@ The capstone of the whole module — a professional **Recon Report** combining:
 - Build the multi-section **Recon Report** on the **authorized lab target**.
 - Include the scope statement; keep it **planning only**.
 
-> This report and attack plan become the launch point for **Module 3** (exploitation) and the final pentest report (Unit 17).
+> This report becomes the launch point for **Module 3** and the final pentest report (Unit 17).
 
 <!-- Collect the mini-project (or draft). Graded with the penetration-test report rubric in instructor/grading-and-rubrics.md. -->
 
@@ -475,8 +688,21 @@ They send probes and sometimes **login attempts** to the target. **All of it req
 
 - A scanner saying *"critical vulnerability"* is a **finding**, not a green light.
 - Finding a weakness and attacking it are **completely different acts** — legally and ethically.
-- Real, unauthorized finding? Follow **responsible disclosure** (Unit 01): don't post it, don't exploit it — report it to the owner.
-- We stay on the **authorized lab target** and **stop at the plan.**
+- Real, unauthorized finding? Follow **responsible disclosure** (Unit 01).
+
+> We stay on the **authorized lab target** and **stop at the plan.**
+
+---
+
+# Responsible disclosure in one slide
+
+If you find a real vuln on a system you don't own:
+
+- **Don't** exploit it.
+- **Don't** post it publicly.
+- **Do** report it privately to the owner.
+
+> Quiet, ethical, and legal — in that order.
 
 ---
 
@@ -494,14 +720,14 @@ They send probes and sometimes **login attempts** to the target. **All of it req
 
 - **Scanning → enumeration → vuln scanning** — each digs deeper.
 - Manual enumeration finds context (users, shares) tools miss.
-- **NSE** scripts and automated scanners speed things up — but produce **false positives**.
+- **NSE** and automated scanners speed things up — but produce **false positives**.
 - **CVE + CVSS** turn a version string into a measured risk.
-- **Finding a vuln is not permission to exploit it.** We stop at the plan.
+- **Finding a vuln is not permission to exploit it.** Stop at the plan.
 - Everything stays on the **authorized lab target**.
 
 ---
 
-# Key vocabulary — quick review
+# Key vocabulary — quick review (1 of 2)
 
 | Term | Meaning |
 |---|---|
@@ -509,7 +735,15 @@ They send probes and sometimes **login attempts** to the target. **All of it req
 | Vuln scanning | Matching services to known weaknesses |
 | SMB | Windows file/printer sharing (often enumerable) |
 | NSE | Nmap Scripting Engine |
-| CVE / CVSS | Public vuln ID / 0–10 severity score |
+
+---
+
+# Key vocabulary — quick review (2 of 2)
+
+| Term | Meaning |
+|---|---|
+| CVE | Public ID for one known vulnerability |
+| CVSS | 0–10 severity score |
 | False positive | A reported "vuln" that isn't real |
 | Attack plan | Prioritized list of what to try, and why |
 

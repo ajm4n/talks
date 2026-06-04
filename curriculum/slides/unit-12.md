@@ -138,6 +138,47 @@ In plain English:
 
 ---
 
+# Analogy: a librarian and a request slip
+
+- SQL is like handing a **librarian** a written request slip.
+- "Bring me the book by Maya" → the librarian fetches one book.
+- If you write **extra instructions** on the slip, the librarian follows them too.
+
+> SQLi is sneaking commands onto a slip meant to hold only a name.
+
+---
+
+# Why this matters
+
+- SQLi has caused some of the **largest breaches** in history.
+- One injectable field can leak **every** user's data at once.
+- It's been a top web risk for **20+ years** — and is still common.
+- The fix is simple and well-known, which makes the bug inexcusable.
+
+> Learn this once and you'll never write a vulnerable query again.
+
+---
+
+# Check your understanding
+
+```sql
+SELECT email FROM users WHERE id = 7;
+```
+
+> **Which part is the filter, and what would removing it do?**
+
+---
+
+# Answer
+
+- The filter is **`WHERE id = 7`** — it picks only row 7.
+- Remove it and `SELECT email FROM users` returns **every** email.
+- SQLi works by making the filter **always true**, which has the same effect.
+
+> Break the WHERE and you break the wall protecting every row.
+
+---
+
 # How a login builds a query
 
 The app glues your typed input into a SQL string:
@@ -151,6 +192,16 @@ WHERE username = '<your input>' AND password = '<your input>';
 - The danger: if the app just **pastes** input, it can't tell **your data** from **SQL commands**.
 
 > The bug lives at the moment input is glued straight into the query.
+
+---
+
+# Data vs code — the core confusion
+
+- To the database, the query is **text** it reads left to right.
+- Your input is supposed to be **data** (a name, a number).
+- But pasted-in text can contain **SQL syntax** — and the DB can't tell.
+
+> The database reads everything as one string. It can't see where "your data" ends and "commands" begin.
 
 ---
 
@@ -239,6 +290,41 @@ SELECT first_name, surname FROM users WHERE user_id = '1' OR '1'='1'
 
 ---
 
+# Before and after, side by side
+
+```sql
+-- BEFORE (normal input "1"):
+WHERE user_id = '1'
+
+-- AFTER (input  1' OR '1'='1 ):
+WHERE user_id = '1' OR '1'='1'
+```
+
+- Before: one row matches.
+- After: the `OR` makes it **always true** → all rows match.
+
+> This before/after picture is the whole unit. Keep it on the board.
+
+---
+
+# Check your understanding
+
+> A login uses `WHERE user = '<input>'`. You type `x' OR '1'='1`.
+>
+> **Why does the filter now match every row?**
+
+---
+
+# Answer
+
+- The `'` closes the app's string after `x`.
+- `OR '1'='1'` adds a condition that is **always true**.
+- A filter that's always true matches **every** row.
+
+> You didn't guess the password — you rewrote the question to "give me everyone."
+
+---
+
 # The classic login-form version
 
 ```
@@ -295,6 +381,42 @@ A `UNION` only works if both queries return the **same number of columns**. Prob
 
 ---
 
+# What UNION does
+
+- `UNION` **stacks** the results of a second query under the first.
+- Both queries must return the **same number of columns**.
+- So an attacker bolts **their** SELECT onto the app's query.
+
+```
+[ app's results ]
+[ attacker's results ]  ← UNION glues these on
+```
+
+> UNION is a clean way to make the app print **other tables** for you.
+
+---
+
+# Check your understanding
+
+```sql
+1' ORDER BY 2 -- -   (works)
+1' ORDER BY 3 -- -   (errors)
+```
+
+> **How many columns does the query return, and how do you know?**
+
+---
+
+# Answer
+
+- **Two columns.** `ORDER BY 2` worked but `ORDER BY 3` failed.
+- `ORDER BY n` errors when `n` is **more** columns than exist.
+- So the last number that works is the **column count** — here, 2.
+
+> The first error tells you the count. Now your UNION can match it.
+
+---
+
 # UNION-based extraction
 
 First prove you control the output:
@@ -340,6 +462,34 @@ A row showing `1` and `2` confirms your data is displayed. Now pull real data:
 | Example trigger | `'` returns a SQL error | Page looks the same — infer from response/timing |
 
 > The `'` error in Step 2 yesterday was **error-based**. With no output, you'd go **blind.**
+
+---
+
+# Blind SQLi: 20 questions
+
+- The page shows **no data** and **no errors** — just "found" or "not found."
+- So you ask **yes/no** questions and watch which answer you get.
+- "Is the first letter of the password an `a`? ... a `b`? ..." one bit at a time.
+
+> Blind SQLi is slow but real: enough yes/no answers spell out the data.
+
+---
+
+# Check your understanding
+
+> One page leaks data inside its **error message**. Another page looks identical no matter what you send, but a `' AND 1=1` vs `' AND 1=2` changes the result count.
+>
+> **Which is error-based and which is blind?**
+
+---
+
+# Answer
+
+- The page that leaks via **error messages** → **error-based**.
+- The page with **no visible data**, inferred from true/false behavior → **blind**.
+- Blind is harder and slower, but still extracts the full data.
+
+> Error-based hands you the data. Blind makes you ask for it, bit by bit.
 
 ---
 
@@ -423,6 +573,39 @@ $stmt->execute([':id' => $id]);
 
 ---
 
+# Analogy: a fill-in-the-blank form
+
+- A prepared statement is a printed form with a labeled **blank**.
+- The database reads the form's wording **first**, then drops your text in the blank.
+- Whatever you write in the blank stays **inside** the blank — it can't rewrite the form.
+
+> The form is locked before you write. You fill a box; you can't edit the page.
+
+---
+
+# Check your understanding
+
+```php
+$stmt = $pdo->prepare('... WHERE user_id = :id');
+$stmt->execute([':id' => $id]);
+```
+
+> A user sets `$id` to `1' OR '1'='1`.
+>
+> **What happens to the query?**
+
+---
+
+# Answer
+
+- Nothing dangerous. The whole string is treated as **one literal value**.
+- The DB looks for a user whose id is the **text** `1' OR '1'='1`.
+- There's no such user → it returns **nothing**, no injection.
+
+> The quote is just a character now. The query structure can't change.
+
+---
+
 # DEFENSE: defense-in-depth
 
 | Layer | What it does |
@@ -432,6 +615,24 @@ $stmt->execute([':id' => $id]);
 | **Least privilege** | The app's DB account can't read every table → smaller blast radius. |
 
 **Why validation isn't enough alone:** some fields must allow quotes (the name `O'Brien`!), and a blocklist can always miss a string. Prepared statements don't depend on guessing every bad input.
+
+---
+
+# Check your understanding
+
+> A developer says "I'll just block the apostrophe character — then `' OR '1'='1` can't work."
+>
+> **Name one problem with relying only on that.**
+
+---
+
+# Answer
+
+- Real names contain apostrophes (`O'Brien`) — you'd reject valid users.
+- Attackers can encode or sneak quotes past a naive filter.
+- Numeric injection (`1 OR 1=1`) may need **no quote at all**.
+
+> Blocking characters is brittle. Prepared statements don't need to guess.
 
 ---
 
@@ -475,6 +676,34 @@ A good finding lets a developer **reproduce** and **fix** the bug:
 
 ---
 
+# What makes SQLi high severity
+
+- It can expose the **entire** database — every user, every record.
+- It often needs **no login** and leaves few obvious traces.
+- It can lead to **full account takeover** or even server compromise.
+
+> Wide reach + low effort + sensitive data = a top-severity finding.
+
+---
+
+# Check your understanding
+
+> Your finding lets an unauthenticated visitor dump the whole `users` table, including password hashes.
+>
+> **What severity, and what's the primary fix to recommend?**
+
+---
+
+# Answer
+
+- **High / Critical** — full credential-store disclosure, no login needed.
+- Primary fix: **prepared statements** (parameterized queries).
+- Add input validation and least privilege as **defense-in-depth**.
+
+> Big impact + easy exploit = Critical. Always pair it with the fix.
+
+---
+
 # Your SQLi finding — fill these in
 
 | Section | Your content |
@@ -512,6 +741,33 @@ A good finding lets a developer **reproduce** and **fix** the bug:
 - `' OR '1'='1` defeats the filter; **UNION** extracts other tables; **blind** infers with no output.
 - **sqlmap** automates it — lab targets only.
 - The fix: **prepared statements** (primary) + validation + least privilege.
+
+---
+
+# SQLi in one sentence
+
+> SQL injection is **untrusted input changing the meaning of a query** — and the cure is to send input as **data**, never as SQL text.
+
+- Not password guessing. **Question rewriting.**
+- Prepared statements lock the question before input arrives.
+
+---
+
+# Check your understanding
+
+> A classmate says "SQL injection means guessing the admin's password really fast."
+>
+> **Correct them in one sentence.**
+
+---
+
+# Answer
+
+- No — SQLi doesn't guess passwords at all.
+- It **changes the meaning of the query** so the check no longer matters.
+- `' OR '1'='1` makes the filter always true; you skip the password entirely.
+
+> It's rewriting the question, not guessing the answer.
 
 ---
 

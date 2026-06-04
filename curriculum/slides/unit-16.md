@@ -123,6 +123,26 @@ The framework does not ask if you have permission. **You** do.
 
 ---
 
+# How this unit connects
+
+- Unit 14–15: you found bugs and escalated **by hand**.
+- This unit: you see the same ideas **packaged** into a framework.
+- Same concepts — recon, exploit, payload, post — just faster to run.
+
+> The tool is new. The thinking underneath is everything you already learned.
+
+---
+
+# A word about the demos
+
+- Every command in this deck is run on an **authorized lab box**.
+- Target IPs and module names come from **the room your instructor assigns**.
+- Placeholders like `<target-ip>` mean "fill in from your room."
+
+> If a slide shows a command, picture it running against the THM target — nowhere else.
+
+---
+
 <!-- _class: lead -->
 
 # Day 1
@@ -163,6 +183,36 @@ The framework does not ask if you have permission. **You** do.
 
 ---
 
+# Analogy — the universal remote
+
+- A pile of separate remotes = writing each exploit from scratch.
+- Metasploit is the **universal remote**: one set of buttons for everything.
+- Convenient — but you can forget how any single device actually works.
+
+> The danger isn't the remote. It's never learning what the buttons do.
+
+---
+
+# Check your understanding
+
+> Your friend says: *"A framework is just one really big exploit."*
+
+Is that right? Why or why not?
+
+<!-- Pause. Let them answer before the reveal. -->
+
+---
+
+# Answer
+
+- **No** — a framework is a **toolkit** of many modules plus a shared workflow.
+- One big exploit only attacks **one** vulnerability.
+- A framework bundles **thousands** of exploits, payloads, and helpers.
+
+> Framework = the whole toolbox. Exploit = one tool inside it.
+
+---
+
 # The core msfconsole workflow
 
 Five steps, always in this order:
@@ -194,20 +244,44 @@ You (LHOST) <---- shell comes back ---- Target (RHOSTS)
 
 ---
 
-# Worked example — selecting a module
+# Worked example — searching
 
 ```bash
 msfconsole                 # launch (first start can take a minute)
-
 search vsftpd              # find modules matching a keyword
+```
+
+- `search` accepts a service name, software name, or CVE.
+- It returns a **numbered list** of matching modules.
+
+> Read the result, then pick the **full module path** you want.
+
+---
+
+# Worked example — selecting & reading
+
+```bash
 use exploit/unix/ftp/vsftpd_234_backdoor
 show options               # see what needs to be set
 ```
 
-- `show options` lists settings. **Required** ones are marked `yes`.
-- You'll almost always need to set **RHOSTS**.
+- The prompt changes to show the selected module.
+- `show options` lists settings; **required** ones are marked `yes`.
 
-<!-- We are not running anything yet on Day 1 — just reading what each option means. -->
+> You'll almost always need to set **RHOSTS**. Day 1: we only read, not run.
+
+---
+
+# Reading `show options`
+
+| Column | What it tells you |
+|--------|-------------------|
+| Name | The setting (e.g., RHOSTS, LHOST) |
+| Current Setting | Its value now (blank = not set) |
+| Required | `yes` means it must be filled in |
+| Description | A short note on what it does |
+
+> Scan the **Required = yes** rows first — those are what you must `set`.
 
 ---
 
@@ -256,6 +330,26 @@ What runs **after** you're inside?
 
 ---
 
+# Check your understanding
+
+> Match the job to the module type:
+> a port scanner · code that opens a shell · a bug that gets you in · gather info after access
+
+<!-- Have them call out auxiliary / payload / exploit / post. -->
+
+---
+
+# Answer
+
+- A port scanner → **Auxiliary**
+- Code that opens a shell → **Payload**
+- A bug that gets you in → **Exploit**
+- Gather info after access → **Post**
+
+> Exploit gets you in; payload runs once in; auxiliary helps; post comes after.
+
+---
+
 # What is Meterpreter?
 
 - A powerful **payload** that gives a rich, in-memory post-exploitation shell.
@@ -267,14 +361,36 @@ What runs **after** you're inside?
 
 ---
 
-# Putting it together — the exploit run
+# Bind vs reverse — the connection direction
+
+- **Reverse shell:** the target connects **back to you** (uses LHOST).
+- **Bind shell:** you connect **into** a port the target opened.
+- Reverse is common because firewalls often block **incoming** connections.
+
+> Most lab payloads are `reverse_tcp` — that's why LHOST matters so much.
+
+---
+
+# Putting it together — set up
 
 ```bash
 use exploit/<path>
 set PAYLOAD <meterpreter-payload>   # the room tells you which
 set RHOSTS <target-ip>              # the TARGET
 set LHOST <your-ip>                 # YOU (shell connects back)
-show options                        # double-check nothing required is blank
+```
+
+- Set the **payload** first, then the addresses.
+- `set` doesn't run anything — it only fills in values.
+
+> Tip: re-run `show options` after setting, before you launch.
+
+---
+
+# Putting it together — launch
+
+```bash
+show options    # double-check nothing required is blank
 exploit
 ```
 
@@ -282,6 +398,19 @@ exploit
 - If it fails: recheck **LHOST**, the **payload**, and that the target is up.
 
 <!-- Walk this as a class against the room's target before students try alone. -->
+
+---
+
+# Finding your LHOST
+
+```bash
+ip addr        # look for the tun0 / room VPN interface
+```
+
+- Use the IP on the interface the **target can reach back to** (often `tun0`).
+- A wrong LHOST = the shell connects "back" to nowhere.
+
+> The #1 fix for "my session never opened" is correcting LHOST.
 
 ---
 
@@ -327,6 +456,32 @@ help           # see all available commands
 
 ---
 
+# Moving around in Meterpreter
+
+```bash
+pwd            # where am I in the file system
+ls             # list files here
+cd /tmp        # change directory
+download <f>   # pull a file back to your machine
+```
+
+- Meterpreter feels like a shell, but it's a **rich payload** with extra commands.
+- Only touch files the room intends — don't alter the box beyond scope.
+
+> Same idea as a normal shell, with post-exploitation superpowers.
+
+---
+
+# Why "in memory" matters
+
+- Meterpreter runs **inside a process in RAM**, not as a file on disk.
+- No file on disk = fewer artifacts for simple antivirus to scan.
+- But behavior still shows up — which is exactly what **EDR** watches.
+
+> Stealthier than a dropped file, not invisible. Defenders adapt too.
+
+---
+
 # Running a post module
 
 ```bash
@@ -341,6 +496,30 @@ run
 - Only run modules the room intends — don't alter the box beyond scope.
 
 <!-- Common error: forgetting to background before running a post module / not setting SESSION. -->
+
+---
+
+# Check your understanding
+
+> You run a post module and get: *"SESSION is required but not set."*
+
+What did you forget to do?
+
+<!-- Lead them to: background the session, then set SESSION to its number. -->
+
+---
+
+# Answer
+
+- You forgot to **`background`** first (or didn't note the session number).
+- A post module needs a **session to act on** — point it with `set SESSION <n>`.
+
+```bash
+background      # note "session 1"
+set SESSION 1   # tell the post module which session to use
+```
+
+> Post modules run *through* a session — they need one to target.
 
 ---
 
@@ -392,6 +571,35 @@ Where the tool-runner approach breaks:
 
 > A pro uses Metasploit *and* knows the manual version underneath.
 
+---
+
+# A quick story
+
+- A tester runs the module. It says "exploit completed, but no session."
+- A tool-runner is stuck.
+- Someone who **understands** checks: wrong LHOST? payload caught by EDR? service version off?
+
+> The tool gave up. The understanding kept going.
+
+---
+
+# Check your understanding
+
+> Name one moment from the last few slides where **only the manual knowledge** saves the test.
+
+<!-- Accept: not vulnerable to any module, payload caught by EDR, confusing error, explaining the finding. -->
+
+---
+
+# Answer (any one)
+
+- The target isn't vulnerable to **any** module — adapt by hand.
+- The payload gets **caught by EDR** — change the approach.
+- A **confusing error** — troubleshoot what you understand.
+- A client asks **"what does this mean?"** — explain it clearly.
+
+> Different situations, same lesson: understanding outlasts the button.
+
 **Exit ticket:** Give one situation where relying only on Metasploit fails, and what manual knowledge saves you.
 
 ---
@@ -427,6 +635,16 @@ You  --->  Foothold box (public)  --->  Hidden internal box
 
 ---
 
+# Why you can't reach it directly
+
+- The internal box has **no public address** — the internet can't route to it.
+- A firewall only allows traffic to the **public** foothold box.
+- So you must **go through** the foothold to talk to the hidden box.
+
+> Pivoting exists because internal networks are deliberately walled off.
+
+---
+
 # Port forwarding & SSH tunneling
 
 - **Port forwarding** = redirecting traffic from one port/host to another to reach a blocked service.
@@ -434,6 +652,16 @@ You  --->  Foothold box (public)  --->  Hidden internal box
 - **Local port forward (`ssh -L`)** = maps a port on *your* machine to a remote service *through* the SSH server.
 
 > The SSH server becomes the stepping stone — that's pivoting made concrete.
+
+---
+
+# The pizza-delivery analogy
+
+- The gated neighborhood (internal network) won't let outsiders drive in.
+- But your friend inside (the foothold) **can** drive to any house.
+- You hand your order to the friend; they deliver and bring the result back.
+
+> The tunnel is your friend carrying traffic past the gate.
 
 ---
 
@@ -497,6 +725,24 @@ curl http://localhost:8000
 - That's *why* defenders watch it so closely, and why it's a specialty area beyond this class.
 
 > Concept only — no attack steps. File it away as "the next big thing to learn."
+
+---
+
+# Check your understanding
+
+> Why is a Domain Controller such a tempting target for an attacker?
+
+<!-- It centrally controls users, computers, and permissions for the whole network. -->
+
+---
+
+# Answer
+
+- The Domain Controller runs **Active Directory** for the network.
+- It controls **users, computers, and permissions** centrally.
+- Owning it can mean owning the **whole** Windows network.
+
+> Central control is convenient — and a single juicy target.
 
 ---
 

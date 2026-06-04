@@ -130,6 +130,29 @@ When you type a URL and press Enter:
 
 ---
 
+# Analogy: the web is like a restaurant
+
+- **You (client)** read the menu and place an **order** (request).
+- **The kitchen (server)** cooks and sends out a **plate** (response).
+- You never walk into the kitchen — you only see what comes out.
+
+> The kitchen never serves food you didn't order — the **client asks first, every time.**
+
+<!-- This analogy returns in Day 2 (you can't see the kitchen = server-side) and Day 4 (the proxy = intercepting the waiter). -->
+
+---
+
+# Why this matters
+
+- Every login, every game move, every post is a **request** going somewhere.
+- If you can **read** the request, you understand exactly what the app is doing.
+- If you can **change** it, you can test whether the app trusts you too much.
+- Attackers and defenders both start here — by reading the conversation.
+
+> You can't attack — or defend — a conversation you can't read.
+
+---
+
 # Anatomy of an HTTP request
 
 ```http
@@ -166,6 +189,62 @@ Three parts:
 
 ---
 
+# Worked example: one full round trip
+
+You search for cats. Your browser sends:
+
+```http
+GET /search?q=cats HTTP/1.1
+Host: example.com
+```
+
+The server answers:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: text/html
+```
+
+> One request, one response. The `200` says "found it"; the body holds the page.
+
+---
+
+# Headers carry the extra info
+
+```http
+Host: example.com
+User-Agent: Mozilla/5.0
+Accept: text/html
+Cookie: session=abc123
+```
+
+- `Host` — which site you want (one server hosts many sites).
+- `User-Agent` — what browser you're using.
+- `Cookie` — who you are (your session ticket).
+
+> Headers are the request's "fine print" — small lines that change everything.
+
+---
+
+# Check your understanding
+
+> A request starts with `POST /login HTTP/1.1`.
+>
+> **What are the method and the path?**
+
+<!-- Pause and let students answer before advancing. -->
+
+---
+
+# Answer
+
+- **Method:** `POST` — sending data (a login).
+- **Path:** `/login` — the resource being acted on.
+
+> The first word is always the **method**; the next is the **path**.
+
+---
+
 # GET vs POST
 
 | | GET | POST |
@@ -193,6 +272,35 @@ Three parts:
 The ones that matter to us: **200** (here it is), **301/302** (look elsewhere), **403** (exists, but forbidden), **404** (nothing here), **500** (server crashed).
 
 > **4xx = "you messed up", 5xx = "the server messed up."** And to an attacker, **403 and 200 both mean "something is there."**
+
+---
+
+# Status codes tell a story
+
+- A `200` after a login → it worked.
+- A `302` after a login → you're being redirected (usually to a dashboard).
+- A `403` on a page → you're not allowed (but it exists!).
+- A `500` after odd input → you may have **broken something** worth probing.
+
+> Testers read status codes like a detective reads a witness — every number is a clue.
+
+---
+
+# Check your understanding
+
+> You request `/admin` and get back **403 Forbidden**.
+>
+> **Does the `/admin` page exist?**
+
+---
+
+# Answer
+
+- **Yes — it exists.** `403` means "this is real, but you're not allowed in."
+- A `404` would mean "nothing here at all."
+- To a tester, a `403` is a **confirmed target** worth investigating.
+
+> 403 = "it's there, just locked." That's a clue, not a dead end.
 
 ---
 
@@ -249,6 +357,38 @@ scheme   host    path      query string
 
 ---
 
+# Worked example: read the parameters
+
+```
+https://shop.com/product?id=42&color=red&qty=2
+```
+
+- **id** = 42 — which product
+- **color** = red — a choice
+- **qty** = 2 — how many
+
+> What happens if you change `qty=2` to `qty=-1`, or `id=42` to `id=43`? That question is the whole game.
+
+---
+
+# Check your understanding
+
+> In `https://site.com/news?topic=sports&page=3`,
+>
+> **how many parameters are there, and what are their names?**
+
+---
+
+# Answer
+
+- **Two parameters:** `topic` and `page`.
+- Values: `topic=sports`, `page=3`.
+- The `&` separates them; everything after `?` is the query string.
+
+> Count the `name=value` pairs — each one is a parameter you could change.
+
+---
+
 # What is a cookie?
 
 - A **small piece of data** the server tells your browser to store.
@@ -274,6 +414,34 @@ Set-Cookie: session=abc123; HttpOnly; Secure
 - `Secure` — cookie only sent over HTTPS.
 
 <!-- Foreshadow Unit 11 XSS cookie theft. -->
+
+---
+
+# Analogy: a session cookie is a coat-check ticket
+
+- You hand in your coat, get a **numbered ticket** (the cookie).
+- The ticket doesn't say your name — but whoever holds it gets the coat.
+- **Steal the ticket → walk off with someone else's coat.**
+
+> That's why a stolen session cookie = a stolen identity. The site trusts the ticket, not the person.
+
+---
+
+# Check your understanding
+
+> A cookie is set with the `HttpOnly` flag.
+>
+> **Can a page's JavaScript read that cookie's value?**
+
+---
+
+# Answer
+
+- **No.** `HttpOnly` hides the cookie from JavaScript entirely.
+- This blocks a common XSS trick: a script that tries to steal `document.cookie`.
+- The cookie still rides along on requests — the browser sends it, JS just can't see it.
+
+> `HttpOnly` is a key defense we'll revisit when we study XSS in Unit 11.
 
 ---
 
@@ -351,6 +519,26 @@ Set-Cookie: session=abc123; HttpOnly; Secure
 
 ---
 
+# Check your understanding
+
+```html
+<input type="hidden" name="price" value="9.99">
+```
+
+> A checkout page sends this hidden field. **Can a shopper change `9.99` before it reaches the server?**
+
+---
+
+# Answer
+
+- **Yes.** "Hidden" only hides it from the page — not from a proxy.
+- In Burp, the shopper can intercept the request and edit `price` to `0.01`.
+- The fix: the **server** must look up the real price, never trust the field.
+
+> Never trust the client. The price must be decided server-side.
+
+---
+
 # Reading a request in the Network tab
 
 1. Open Dev Tools → **Network** tab.
@@ -400,6 +588,34 @@ Set-Cookie: session=abc123; HttpOnly; Secure
 > We zoom into **A03 Injection** in Units 11 (XSS, command injection) and 12 (SQLi).
 
 <!-- Keep at awareness depth — don't teach all ten attacks. It's the map; Units 11/12 do the driving. -->
+
+---
+
+# Why the Top 10 matters
+
+- It's the security world's **shared language** — everyone knows what "A03" means.
+- Bug-bounty reports, pentest findings, and job interviews all reference it.
+- It's a **checklist**: build an app, then ask "did I avoid all ten?"
+
+> Knowing the map first means the attacks in Units 11–12 won't feel random.
+
+---
+
+# Check your understanding
+
+> An app lets a normal user open another user's private messages just by changing a number in the URL.
+>
+> **Which OWASP category is this?**
+
+---
+
+# Answer
+
+- **A01 — Broken Access Control.**
+- The user is doing something they shouldn't be allowed to do.
+- The fix: the **server** must check "are *you* allowed to see this?" on every request.
+
+> Changing an `id` to reach someone else's data is the classic Broken Access Control bug.
 
 ---
 
@@ -455,6 +671,16 @@ A proxy lets you **see and modify** real traffic — including data a site never
 ```
 
 > Burp sits in the middle of the conversation and can change what's said.
+
+---
+
+# Analogy: pausing the waiter
+
+- Remember the restaurant? The **waiter** carries your order to the kitchen.
+- An intercepting proxy is like **freezing the waiter mid-step**.
+- You read the order slip, maybe **change** it, then say "go" — the kitchen never knows.
+
+> Burp is the frozen waiter: you control the order before the kitchen sees it.
 
 ---
 
@@ -553,6 +779,25 @@ Cookie: PHPSESSID=...; security=low
 > Where does **Burp** sit in the conversation between your browser and the server?
 
 <!-- Answer: between the browser (client) and the server, as an intercepting proxy, where it can pause, read, and modify requests. -->
+
+---
+
+# Check your understanding
+
+> You turn Intercept **on**, click a link, and the browser seems to **freeze**.
+>
+> **Is something broken? What do you do?**
+
+---
+
+# Answer
+
+- **Nothing is broken.** The request is **paused at Burp**, waiting for you.
+- Read it, then click **Forward** to let it continue.
+- A page is many requests — you may Forward several times.
+- Done testing? Turn Intercept **off** so browsing works normally.
+
+> The "frozen browser" is the #1 Day 4 surprise. It's just waiting.
 
 ---
 

@@ -91,6 +91,27 @@ By the end of this unit you can:
 
 ---
 
+# Why this week matters
+
+- All semester you practiced phases **one at a time**.
+- A real test isn't separate skills — it's **one flowing process**.
+- The capstone is where it all **clicks together**.
+- And it's a real artifact: your **first complete project**.
+
+> This is the week the course turns into something you can show.
+
+---
+
+# What you're graded on
+
+- **Not** the number of flags you capture.
+- The **report** and the **presentation** — your communication.
+- **Honest documentation**, including dead ends.
+
+> A team with fewer flags but a clear, honest report can earn top marks.
+
+---
+
 <!-- _class: lead -->
 
 # ⚖️ Ethics & Authorization
@@ -175,6 +196,36 @@ Capture: the RoE, target details, and your first observations.
 
 ---
 
+# Capture evidence from minute one
+
+- Take a **labeled screenshot** of every key result.
+- Copy the **exact command** that produced it.
+- Thin notes today = a weak report on Day 4.
+
+> You can only report what you wrote down — start now.
+
+---
+
+# Check your understanding
+
+> Your teammate gets a great result but only says *"trust me, it worked."*
+
+Why won't that survive into the report?
+
+<!-- Lead them to: no reproducible evidence; it effectively didn't happen. -->
+
+---
+
+# Answer
+
+- With no screenshot or command, it **can't be reproduced**.
+- For the client, a finding with no proof **doesn't exist**.
+- Re-run it, capture the command and a labeled screenshot.
+
+> No evidence, no finding. Document as you go.
+
+---
+
 <!-- _class: lead -->
 
 # Day 2
@@ -187,6 +238,16 @@ Capture: the RoE, target details, and your first observations.
 > What's the difference between **scanning** and **enumeration**? Give one tool for each.
 
 <!-- Scanning = what's there (nmap). Enumeration = digging into a service for details (gobuster, manual). -->
+
+---
+
+# Scanning vs. enumeration
+
+- **Scanning** = *what's there?* — ports, hosts, services (nmap).
+- **Enumeration** = *tell me more* — dig into one service for detail.
+- Scanning finds the door; enumeration reads what's on it.
+
+> Scan wide, then enumerate deep on what looks promising.
 
 ---
 
@@ -259,6 +320,16 @@ Capture: the privesc path
 
 ---
 
+# Honest dead ends are real skill
+
+- Not every box has a privesc — and that's **fine**.
+- "We tried X, Y, Z and found no path" is a **valid finding**.
+- Inventing a result to look better fails the ethics test.
+
+> A documented dead end beats a made-up win every time.
+
+---
+
 # Severity inflation comes back under pressure
 
 - Deadline stress brings the "everything is Critical" reflex.
@@ -269,6 +340,26 @@ Capture: the privesc path
 | Unauth RCE; dumping customer data | Verbose error leaking a version number |
 
 > A true Critical is rare. Justify every rating.
+
+---
+
+# Check your understanding
+
+> Your team captured only one flag, but documented every step honestly with evidence.
+
+Will you score well? Why?
+
+<!-- Yes — the grade is documentation and honesty, not flag count. -->
+
+---
+
+# Answer
+
+- **Yes** — the grade is the **report and presentation**, not flags.
+- Clear, honest, well-evidenced work meets the goal.
+- Accuracy over bravado — every time.
+
+> Fewer flags, fully documented, can still earn top marks.
 
 ---
 
@@ -302,6 +393,74 @@ Capture: the privesc path
 
 ---
 
+# Red team — the offense
+
+- **Simulates real attackers** on authorized tests.
+- This is the work this whole course previewed.
+- Day-to-day: recon, exploit, privesc, **and reporting**.
+
+> The job you tasted in the capstone — done for a living.
+
+---
+
+# Blue team & the SOC
+
+- **Defenders** who watch, detect, and respond to threats.
+- A **SOC analyst** monitors alerts in real time.
+- Often the **most common entry door** into the field.
+
+> Every attack you learned, a blue-teamer is trained to catch.
+
+---
+
+# Purple, GRC & AppSec
+
+- **Purple team:** red and blue working **together** to improve.
+- **GRC:** the policy, risk, and rules side — heavy on writing.
+- **AppSec:** find and fix security flaws **in the code itself**.
+
+> Not every path is "hacking." The field is wide.
+
+---
+
+# You don't have to attack to belong
+
+- Detection, response, policy, and code review are all security.
+- Strong **writing** (your Unit 17 skill) helps in **every** role.
+- Pick the part of the work that you actually enjoy.
+
+> There's a seat here whether you love breaking or building.
+
+---
+
+# Check your understanding
+
+> Which role mostly **monitors alerts and responds** to threats, rather than attacking?
+
+<!-- SOC analyst / blue team. -->
+
+---
+
+# Answer
+
+- The **SOC analyst** (blue team) monitors and responds.
+- Red team attacks; blue team defends; purple bridges them.
+- All three need the attack knowledge you built here.
+
+> Knowing the attack makes you a better defender, too.
+
+---
+
+# CyberSeek & NICE
+
+- **CyberSeek** maps real **jobs, demand, and salaries** — free.
+- **NICE Framework** names the **work roles, tasks, and skills**.
+- Use both to turn "I like security" into a concrete plan.
+
+> Real data beats guessing. Explore where the jobs actually are.
+
+---
+
 # The certification roadmap
 
 ```text
@@ -319,6 +478,56 @@ Security+   →   eJPT / PNPT   →   OSCP   →   and beyond
 
 ---
 
+# Security+ — the first step
+
+- Broad, **entry-level**, widely recognized by employers.
+- Multiple-choice; covers attacks, defense, and operations.
+- A common requirement for a **first security job**.
+
+> If you study one cert next, this is usually it.
+
+---
+
+# eJPT / PNPT — going hands-on
+
+- **Practical** exams: you actually hack a lab, not just answer questions.
+- A natural step **after** Security+ for offensive interest.
+- PNPT even requires you to **write a report** — like Unit 17.
+
+> The bridge between "knows the words" and "can do the work."
+
+---
+
+# OSCP — the pro milestone
+
+- A hard, hands-on exam: compromise machines in a **timed lab**.
+- Then write a full **report** — pass requires both.
+- The professional version of **everything in this course**.
+
+> A real goal — earned over years, not weeks. You've started.
+
+---
+
+# Check your understanding
+
+> A friend wants to "get OSCP first because it's the most respected."
+
+What would you advise, and why?
+
+<!-- Lead them to: build up the roadmap; OSCP assumes skills Security+/eJPT develop. -->
+
+---
+
+# Answer
+
+- Start with **Security+**, then a practical cert like **eJPT/PNPT**.
+- OSCP assumes skills the earlier steps build first.
+- Certs **stack** — skipping to the top usually backfires.
+
+> Climb the ladder. Each rung makes the next one reachable.
+
+---
+
 # Competitions & building a portfolio
 
 - **Competitions:** picoCTF, National Cyber League (NCL), CyberPatriot.
@@ -329,14 +538,52 @@ Security+   →   eJPT / PNPT   →   OSCP   →   and beyond
 
 ---
 
+# Build a home lab
+
+- A **safe, isolated** setup you build to keep practicing legally.
+- Free VMs, intentionally-vulnerable boxes, picoCTF.
+- Your own lab = unlimited practice with **zero legal risk**.
+
+> The lab is where you stay sharp without crossing the line.
+
+---
+
+# Build a portfolio
+
+- A collection of **sanitized writeups**, lab journals, and projects.
+- Shows an employer what you can **actually do** — not just claim.
+- Your capstone report could be your **first portfolio piece**.
+
+> A portfolio turns "I'm interested" into "here's my proof."
+
+---
+
 # College vs. self-study
 
-- **Both work.** Neither is required to be the only path.
-- College: structure, network, degree.
+- **Both work.** Neither is the only path.
+- College: structure, a network, a degree.
 - Self-study: flexible, cheaper, portfolio-driven.
 - What matters most: **consistency, projects, and a portfolio.**
 
 > Pick the next step that fits *you* — and keep going.
+
+---
+
+# Check your understanding
+
+> Name **one legal** way to keep building these skills after this class.
+
+<!-- picoCTF, NCL, CyberPatriot, a home lab, authorized rooms — anything on the approved side of the line. -->
+
+---
+
+# Answer (any one)
+
+- **picoCTF** or another authorized CTF.
+- **NCL** or **CyberPatriot** competitions.
+- Your own **home lab** of intentionally-vulnerable VMs.
+
+> Plenty of legal practice. Zero excuses to go off-scope.
 
 ---
 
