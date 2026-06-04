@@ -33,7 +33,7 @@ This is a one-semester (18-week) course that teaches students the fundamentals o
 
 ## How the course is organized
 
-The course is divided into **6 modules** spanning **18 units** (roughly one unit per week). See the [Pacing Guide](curriculum/pacing-guide.md) for the week-by-week schedule.
+The course is divided into **6 modules** spanning **18 units** (roughly one unit per week). See the [Pacing Guide](pacing-guide.md) for the week-by-week schedule.
 
 | Module | Weeks | Theme |
 |--------|-------|-------|
@@ -47,13 +47,12 @@ The course is divided into **6 modules** spanning **18 units** (roughly one unit
 ### Repository layout
 
 ```
-.
+curriculum/                       ← course root
 ├── README.md                     ← you are here
-├── curriculum/
-│   ├── course-overview.md        ← philosophy, outcomes, assessment model
-│   ├── pacing-guide.md           ← week-by-week schedule
-│   ├── standards-alignment.md    ← NICE, CSTA, CAE, Security+ mapping
-│   └── unit-template.md          ← the format every unit follows
+├── course-overview.md            ← philosophy, outcomes, assessment model
+├── pacing-guide.md               ← week-by-week schedule
+├── standards-alignment.md        ← NICE, CSTA, CAE, Security+ mapping
+├── unit-template.md              ← the format every unit follows
 ├── instructor/
 │   ├── lab-setup-guide.md        ← how to stand up the lab environment
 │   ├── safety-legal-ethics.md    ← AUP, consent forms, legal briefing
@@ -61,6 +60,7 @@ The course is divided into **6 modules** spanning **18 units** (roughly one unit
 ├── resources/
 │   ├── glossary.md               ← key terms
 │   └── resource-links.md         ← curated free tools, platforms, reading
+├── slides/                       ← Marp slide decks (course intro + per unit)
 └── units/
     ├── unit-01-.../              ← each unit folder contains:
     │   ├── lesson-plan.md        ←   day-by-day teaching plan
@@ -96,7 +96,7 @@ This course mirrors the **topic flow and mindset** of PEN-200 but is **not** OSC
 - **Defers or omits** the most advanced/inappropriate PEN-200 topics for a HS setting: antivirus evasion, exploit development/buffer overflows, and the deep Active Directory attack chain (covered only at a conceptual level).
 - Uses only beginner-safe, free or low-cost lab platforms.
 
-A topic-by-topic crosswalk lives in [`curriculum/course-overview.md`](curriculum/course-overview.md).
+A topic-by-topic crosswalk lives in [`course-overview.md`](course-overview.md).
 
 ## A note on using AI (Claude, ChatGPT, etc.)
 

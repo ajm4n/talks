@@ -37,7 +37,7 @@ By the end of the course, students will be able to:
 | Capstone (CTF + report + presentation) | 20% | Module 5 |
 | Professionalism & ethics (citizenship) | 5% | AUP adherence, collaboration, conduct |
 
-See [`instructor/grading-and-rubrics.md`](../instructor/grading-and-rubrics.md) for rubrics.
+See [`instructor/grading-and-rubrics.md`](instructor/grading-and-rubrics.md) for rubrics.
 
 ## PEN-200 → high-school crosswalk
 
