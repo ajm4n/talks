@@ -1,0 +1,4 @@
+# Generated slide exports. The PDF set in pdf/ is committed on purpose;
+# regenerate any of these with ./render-all.sh <format>.
+html/
+pptx/

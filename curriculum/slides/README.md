@@ -20,21 +20,25 @@ All decks use the custom **`bootstrap`** theme (`themes/bootstrap.css`): Bootstr
 2. Register the theme: add this to your settings → `"markdown.marp.themes": ["./curriculum/slides/themes/bootstrap.css"]`.
 3. Open any `*.md` deck. Click the preview icon to present, or use the Marp menu to **export** to PDF/PPTX/HTML.
 
-### Option 2 — Marp CLI
+### Option 2 — `render-all.sh` (one command, all decks)
 ```bash
-# install once (requires Node.js)
-npm install -g @marp-team/marp-cli
-
-# re-render a single deck WITH the bootstrap theme
-marp curriculum/slides/unit-03.md --theme-set curriculum/slides/themes/bootstrap.css --pdf
-
-# re-render everything to the pdf/ folder
-for f in curriculum/slides/unit-*.md curriculum/slides/00-*.md; do
-  marp "$f" --theme-set curriculum/slides/themes/bootstrap.css --pdf \
-    -o "curriculum/slides/pdf/$(basename "${f%.md}").pdf"
-done
+cd curriculum/slides
+./render-all.sh          # render every deck to PDF (pdf/)
+./render-all.sh pptx     # PowerPoint (pptx/)
+./render-all.sh html     # standalone HTML (html/) — no browser needed
 ```
-> PDF/PPTX export needs a Chrome/Chromium browser. Set `CHROME_PATH` if Marp can't find one.
+The script applies the `bootstrap` theme automatically, finds a Chrome/Chromium
+for you (including a puppeteer-cached one), and uses `npx @marp-team/marp-cli`
+if Marp isn't installed globally. Requires Node.js. For PDF/PPTX set
+`CHROME_PATH=/path/to/chrome` if it can't auto-detect a browser.
+
+### Option 3 — Marp CLI by hand
+```bash
+npm install -g @marp-team/marp-cli   # once (requires Node.js)
+marp curriculum/slides/unit-03.md \
+  --theme-set curriculum/slides/themes/bootstrap.css --pdf
+```
+> The committed PDFs live in `pdf/`. `pptx/` and `html/` are git-ignored (regenerate as needed).
 
 ### Option 3 — present without installing
 Paste a deck into the web editor at https://web.marp.app to preview/export.
