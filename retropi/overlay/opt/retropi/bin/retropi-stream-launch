@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Frontend shim: takes a .stream file and plays the app named inside it.
+set -euo pipefail
+file=${1:?.stream file required}
+exec /opt/retropi/bin/retropi-stream play "$(head -n1 "$file")"

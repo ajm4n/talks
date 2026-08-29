@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# Console wizard, shown once, on the TV, before the frontend starts.
+# Everything it asks can also be pre-answered by editing retropi.conf on the
+# boot (FAT) partition from any machine, in which case those steps are skipped.
+set -uo pipefail
+. /opt/retropi/lib/common.sh
+
+export NEWT_COLORS='root=,black
+window=,black
+border=white,black
+textbox=white,black
+button=black,white
+listbox=white,black
+actlistbox=black,white
+entry=white,black'
+
+ui()  { whiptail --backtitle "RetroPi setup" "$@" 3>&1 1>&2 2>&3; }
+msg() { whiptail --backtitle "RetroPi setup" --msgbox "$1" 12 68; }
+ask() { whiptail --backtitle "RetroPi setup" --yesno "$1" 12 68; }
+
+step_welcome() {
+    msg "RetroPi
+
+A few questions and you are done. You can use a keyboard now; after this
+screen everything is controller-driven.
+
+Nothing here is permanent - re-run it any time with:  retropi-setup"
+}
+
+step_wifi() {
+    have nmcli || return 0
+    nmcli -t -f STATE general | grep -q connected && return 0
+    ask "Set up Wi-Fi now?\n\n(Skip this if the Pi is on ethernet.)" || return 0
+
+    local ssid pass ssids
+    ssids=$(nmcli -t -f SSID,SIGNAL dev wifi list --rescan yes \
+            | awk -F: 'length($1) { printf "%s %s%%\n", $1, $2 }' | sort -u | head -n 20)
+    [ -n "$ssids" ] || { msg "No networks found. You can set Wi-Fi up later from the frontend."; return 0; }
+
+    # shellcheck disable=SC2086
+    ssid=$(ui --title "Wi-Fi" --menu "Pick your network" 20 68 10 $ssids) || return 0
+    pass=$(ui --title "Wi-Fi" --passwordbox "Password for $ssid" 10 68) || return 0
+
+    if nmcli dev wifi connect "$ssid" password "$pass" >/dev/null 2>&1; then
+        msg "Connected to $ssid."
+    else
+        msg "Could not connect to $ssid. Carrying on - you can retry later."
+    fi
+}
+
+step_controller() {
+    if /opt/retropi/bin/retropi-bt-pair status >/dev/null 2>&1; then
+        msg "Controller already connected. Nice."
+        return 0
+    fi
+    ask "Pair a Bluetooth controller now?\n\nPut the pad into pairing mode first:\n  8BitDo      hold  Start, then Select for 3s\n  DualShock 4 hold  Share + PS\n  DualSense   hold  Create + PS\n  Xbox        hold  the pair button on the back\n  Switch Pro  hold  the Sync button on the top" || return 0
+
+    {
+        echo 10; sleep 1
+        /opt/retropi/bin/retropi-bt-pair pair 60 &
+        local pid=$!
+        for i in $(seq 15 5 95); do echo "$i"; sleep 3; done
+        wait $pid
+    } | whiptail --gauge "Scanning for controllers..." 8 68 0
+
+    if /opt/retropi/bin/retropi-bt-pair status >/dev/null 2>&1; then
+        msg "Paired. It will reconnect on its own from now on."
+    else
+        msg "No controller found. The pairing daemon keeps trying in the
+background, so just put the pad in pairing mode again once the menu is up."
+    fi
+}
+
+step_library() {
+    local choice
+    choice=$(ui --title "Where are your games?" --menu \
+        "You can change this later with: retropi-library" 18 72 4 \
+        local   "On this Pi (SD card or attached USB/SSD)" \
+        network "On a NAS or PC share - played over the network" \
+        usb     "Copy from a USB stick when I plug one in" \
+        skip    "Decide later") || return 0
+
+    case $choice in
+        local)
+            mkdir -p "$RETROPI_ROMS"
+            chown -R "$RETROPI_USER":"$RETROPI_USER" "$RETROPI_ROMS"
+            msg "Put game files in:\n\n  $RETROPI_ROMS/<system>/\n\ne.g. $RETROPI_ROMS/snes/\n\nThe Pi shares that folder over the network as \\\\$(hostname)\\ROMs
+so you can drag files across from your desktop."
+            conf_set library_type none
+            ;;
+        network)
+            local kind host share user pass
+            kind=$(ui --title "Share type" --menu "" 12 60 2 \
+                smb "Windows / Samba / most NAS boxes" \
+                nfs "NFS export") || return 0
+            host=$(ui --inputbox "Server address (hostname or IP)" 10 60 "") || return 0
+            share=$(ui --inputbox "Share name or export path" 10 60 "ROMs") || return 0
+            conf_set library_type "$kind"
+            conf_set library_host "$host"
+            conf_set library_share "$share"
+            if [ "$kind" = "smb" ]; then
+                user=$(ui --inputbox "Username (leave blank for guest)" 10 60 "guest") || true
+                pass=$(ui --passwordbox "Password (blank for guest)" 10 60) || true
+                conf_set library_user "${user:-guest}"
+                conf_set library_pass "${pass:-}"
+                chmod 600 "$RETROPI_CONF"
+            fi
+            if /opt/retropi/bin/retropi-library mount; then
+                msg "Share attached. Games load straight off the network - nothing
+is copied to the SD card."
+            else
+                msg "Could not attach the share. Check the details and re-run:
+  sudo retropi-library mount"
+            fi
+            ;;
+        usb)
+            conf_set usb_import yes
+            msg "Put a folder named ROMs at the top level of a USB stick, with a
+subfolder per system. Plug it in and the Pi copies it across on its own."
+            ;;
+    esac
+}
+
+step_streaming() {
+    have moonlight || return 0
+    ask "Stream games from a gaming PC to this Pi?\n\nIf you run Sunshine or GeForce Experience on a PC on this network,
+the Pi can play its library over the network at full speed.
+
+Set that up now?" || return 0
+
+    local host pin
+    host=$(ui --inputbox "PC hostname or IP" 10 60 "") || return 0
+    [ -n "$host" ] || return 0
+    conf_set stream_host "$host"
+    pin=$(moonlight pair "$host" 2>&1 | grep -oE '[0-9]{4}' | head -n1)
+    if [ -n "$pin" ]; then
+        msg "Enter this PIN on the PC:\n\n        $pin\n\nThen press OK."
+    else
+        msg "Pairing did not start. Check that Sunshine is running on $host."
+    fi
+}
+
+step_done() {
+    mark_done firstboot
+    msg "Done.
+
+The menu comes up next. Handy combos on the pad, in-game:
+
+  Select + Start   quit back to the menu
+  Select + X       open the RetroArch menu
+  Select + R1/L1   save / load state
+
+Re-run this wizard any time with:  retropi-setup"
+}
+
+main() {
+    have whiptail || { warn "whiptail missing, skipping wizard"; mark_done firstboot; return 0; }
+    step_welcome
+    step_wifi
+    step_controller
+    step_library
+    step_streaming
+    step_done
+}
+
+main "$@"

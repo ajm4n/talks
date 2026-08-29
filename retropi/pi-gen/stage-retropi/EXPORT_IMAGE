@@ -1,0 +1,4 @@
+IMG_SUFFIX="-retropi"
+if [ "${USE_QCOW2}" = "1" ]; then
+    export IMG_SUFFIX="${IMG_SUFFIX}-qcow2"
+fi

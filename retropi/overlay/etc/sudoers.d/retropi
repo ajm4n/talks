@@ -1,0 +1,6 @@
+# The frontend runs unprivileged but has menu entries for the handful of
+# system actions a console needs. Each is a fixed command, no wildcards.
+%retropi ALL=(root) NOPASSWD: /opt/retropi/bin/retropi-library
+%retropi ALL=(root) NOPASSWD: /opt/retropi/bin/retropi-update
+%retropi ALL=(root) NOPASSWD: /sbin/shutdown, /sbin/reboot, /usr/sbin/shutdown, /usr/sbin/reboot
+%retropi ALL=(root) NOPASSWD: /usr/bin/systemctl restart retropi-btpair.service

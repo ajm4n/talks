@@ -1,0 +1,35 @@
+# RetroPi configuration.
+#
+# This file lives on the boot (FAT) partition at /boot/firmware/retropi/retropi.conf,
+# which means you can edit it by putting the SD card in any computer - including
+# before the Pi has ever been switched on. Anything set here is treated as
+# already answered and the first-boot wizard skips that question.
+
+# --- game library ------------------------------------------------------------
+# none  games live on the Pi, in ~/ROMs/<system>/
+# smb   a Windows/Samba/NAS share, mounted on demand - games load over the
+#       network and never touch the SD card
+# nfs   an NFS export, same idea
+library_type = none
+library_host =
+library_share = ROMs
+library_user = guest
+library_pass =
+# Set to yes if save files should be written back to the share too.
+library_writable = no
+
+# Copy games off any USB stick that has a top-level ROMs/ folder.
+usb_import = yes
+
+# --- streaming from a gaming PC ----------------------------------------------
+# Point this at a PC running Sunshine (or GeForce Experience) and its library
+# shows up in the frontend as another system.
+stream_host =
+stream_fps = 60
+stream_bitrate = 20000
+stream_codec = h264
+
+# --- frontend ----------------------------------------------------------------
+# Pin the ES-DE release, or give a full URL for an offline mirror.
+esde_version = 3.2.0
+# esde_url =

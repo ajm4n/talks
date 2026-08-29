@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!-- Extra systems layered on top of ES-DE's bundled list.
+     ES-DE only shows a system when its ROM directory contains matching files,
+     so listing everything here costs nothing on an empty install. -->
+<systemList>
+  <system>
+    <name>moonlight</name>
+    <fullname>Streaming from PC</fullname>
+    <path>%ROMPATH%/moonlight</path>
+    <extension>.stream .STREAM</extension>
+    <command>/opt/retropi/bin/retropi-stream-launch %ROM%</command>
+    <platform>pc</platform>
+    <theme>moonlight</theme>
+  </system>
+</systemList>

@@ -1,0 +1,7 @@
+[Unit]
+Description=RetroPi USB game import (%i)
+
+[Service]
+Type=oneshot
+ExecStart=/opt/retropi/bin/retropi-library import-usb /dev/%i
+TimeoutStartSec=3600

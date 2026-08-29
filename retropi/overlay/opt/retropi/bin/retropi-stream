@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Play games that live on a gaming PC, streamed to the Pi over the network.
+# Backed by moonlight-embedded talking to Sunshine (open source) or GeForce
+# Experience on the host. The frontend exposes this as its own "system", so a
+# streamed title launches exactly like a local one.
+#
+#   retropi-stream pair [host]      pair with the host PC (shows a PIN)
+#   retropi-stream list [host]      list the apps the host offers
+#   retropi-stream play <app>       stream one app fullscreen
+#   retropi-stream sync             write one .stream launcher per host app
+set -uo pipefail
+. /opt/retropi/lib/common.sh
+
+HOST=$(conf_get stream_host "")
+STREAM_DIR=$RETROPI_ROMS/moonlight
+
+have moonlight || die "moonlight-embedded is not installed (run: retropi-update --streaming)"
+
+resolve_host() {
+    local h=${1:-$HOST}
+    [ -n "$h" ] || die "no host set; run 'retropi-stream pair <host>' or set stream_host in $RETROPI_CONF"
+    printf '%s' "$h"
+}
+
+quality_args() {
+    # 1080p60 is the sweet spot for a Pi 4/5 on wired ethernet; both are
+    # overridable per install without editing this script.
+    printf -- '-1080 -fps %s -bitrate %s -codec %s' \
+        "$(conf_get stream_fps 60)" \
+        "$(conf_get stream_bitrate 20000)" \
+        "$(conf_get stream_codec h264)"
+}
+
+cmd_pair() {
+    local h; h=$(resolve_host "${1:-}")
+    conf_set stream_host "$h"
+    moonlight pair "$h"
+}
+
+cmd_list() { moonlight list "$(resolve_host "${1:-}")"; }
+
+cmd_play() {
+    local app=${1:?app name required} h; h=$(resolve_host "${2:-}")
+    # shellcheck disable=SC2046
+    exec moonlight stream $(quality_args) -app "$app" "$h"
+}
+
+# Turn the host's app list into files the frontend can show as games. Each is a
+# one-line launcher, so the library and the streamed catalogue look identical.
+cmd_sync() {
+    local h app; h=$(resolve_host "${1:-}")
+    mkdir -p "$STREAM_DIR"
+    rm -f "$STREAM_DIR"/*.stream
+    while IFS= read -r app; do
+        [ -n "$app" ] || continue
+        printf '%s\n' "$app" > "$STREAM_DIR/$app.stream"
+    done < <(moonlight list "$h" 2>/dev/null | sed -n 's/^[0-9]*\.[[:space:]]*//p')
+    chown -R "$RETROPI_USER":"$RETROPI_USER" "$STREAM_DIR" 2>/dev/null || true
+    log "wrote $(ls -1 "$STREAM_DIR" 2>/dev/null | wc -l) streamed titles to $STREAM_DIR"
+    /opt/retropi/bin/retropi-library scan
+}
+
+case ${1:-list} in
+    pair) shift; cmd_pair "$@" ;;
+    list) shift; cmd_list "$@" ;;
+    play) shift; cmd_play "$@" ;;
+    sync) shift; cmd_sync "$@" ;;
+    *) die "usage: retropi-stream {pair|list|play <app>|sync} [host]" ;;
+esac

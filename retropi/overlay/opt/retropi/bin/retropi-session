@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# The whole user-facing session: power on, land in the game menu, nothing else.
+# Started by retropi-session.service on tty1 after autologin.
+set -uo pipefail
+. /opt/retropi/lib/common.sh
+
+export HOME=$RETROPI_HOME
+cd "$HOME" || exit 1
+
+# First boot has its own wizard; run it on the console before X comes up so the
+# user configures Wi-Fi and a controller with a keyboard-free flow.
+if ! state_done firstboot; then
+    /opt/retropi/bin/retropi-firstboot || warn "first-boot wizard exited non-zero"
+fi
+
+# A controller makes the difference between a console and a puzzle. Give the
+# pairing daemon a few seconds to reconnect a known pad before we draw anything.
+for _ in $(seq 1 10); do
+    /opt/retropi/bin/retropi-bt-pair status >/dev/null 2>&1 && break
+    sleep 1
+done
+
+exec startx /opt/retropi/bin/retropi-frontend -- :0 vt1 -keeptty -nolisten tcp

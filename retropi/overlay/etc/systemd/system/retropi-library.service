@@ -1,0 +1,12 @@
+[Unit]
+Description=RetroPi game library attach
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/retropi/bin/retropi-library mount
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# Attaches a game library to the Pi. Three sources, all optional, all additive:
+#
+#   local    - ROMs on the SD card / attached SSD  ($HOME/ROMs)
+#   network  - an SMB or NFS share on your NAS or PC, mounted on demand so the
+#              games stream over the network instead of filling the card
+#   usb      - any USB stick with a top-level "ROMs" (or "roms") directory,
+#              mirrored or symlinked in as it is plugged
+#
+# Usage: retropi-library {mount|umount|status|import-usb <device>|scan}
+set -uo pipefail
+. /opt/retropi/lib/common.sh
+
+NET_MOUNT=${RETROPI_NET_MOUNT:-/mnt/retropi-library}
+UNIT_NAME=$(systemd-escape -p --suffix=mount "$NET_MOUNT")
+AUTO_NAME=$(systemd-escape -p --suffix=automount "$NET_MOUNT")
+
+write_units() {
+    local kind=$1 what=$2 opts=$3
+    cat > "/etc/systemd/system/$UNIT_NAME" <<UNIT
+[Unit]
+Description=RetroPi network game library
+After=network-online.target
+Wants=network-online.target
+
+[Mount]
+What=$what
+Where=$NET_MOUNT
+Type=$kind
+Options=$opts
+TimeoutSec=30
+UNIT
+
+    # An automount unit means a NAS that is asleep or unplugged never blocks
+    # boot; the share is dialled up the first time the frontend reads it.
+    cat > "/etc/systemd/system/$AUTO_NAME" <<UNIT
+[Unit]
+Description=RetroPi network game library (automount)
+
+[Automount]
+Where=$NET_MOUNT
+TimeoutIdleSec=600
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+    systemctl daemon-reload
+}
+
+cmd_mount() {
+    local kind host share user pass opts credfile
+    kind=$(conf_get library_type none)
+    [ "$kind" = "none" ] && { log "no network library configured"; return 0; }
+
+    host=$(conf_get library_host)
+    share=$(conf_get library_share)
+    [ -n "$host" ] && [ -n "$share" ] || die "library_host and library_share must be set in $RETROPI_CONF"
+
+    mkdir -p "$NET_MOUNT"
+
+    case $kind in
+        smb|cifs)
+            user=$(conf_get library_user guest)
+            pass=$(conf_get library_pass "")
+            credfile=/etc/retropi-library.cred
+            # Keep the password out of /etc/systemd and out of `ps`.
+            umask 077
+            printf 'username=%s\npassword=%s\n' "$user" "$pass" > "$credfile"
+            chmod 600 "$credfile"
+            opts="credentials=$credfile,uid=$(id -u "$RETROPI_USER"),gid=$(id -g "$RETROPI_USER"),iocharset=utf8,vers=3.0,ro,nofail,x-systemd.automount"
+            # If the share is meant to hold save files too, drop the ro flag.
+            conf_bool library_writable no && opts=${opts/,ro,/,}
+            write_units cifs "//$host/$share" "$opts"
+            ;;
+        nfs)
+            opts="ro,soft,timeo=100,retrans=2,nofail,x-systemd.automount"
+            conf_bool library_writable no && opts=${opts/ro,/rw,}
+            write_units nfs "$host:$share" "$opts"
+            ;;
+        *) die "unknown library_type '$kind' (expected smb or nfs)" ;;
+    esac
+
+    systemctl enable --now "$AUTO_NAME"
+    log "network library configured at $NET_MOUNT"
+    link_network_systems
+}
+
+# ES-DE and RetroArch both want per-system directories. Rather than copying
+# anything, point each system directory at the matching directory on the share.
+link_network_systems() {
+    local src dst sys
+    mkdir -p "$RETROPI_ROMS"
+    # Touch the automount so the share is actually up before we enumerate it.
+    ls "$NET_MOUNT" >/dev/null 2>&1 || true
+    [ -d "$NET_MOUNT" ] || return 0
+    for src in "$NET_MOUNT"/*/; do
+        [ -d "$src" ] || continue
+        sys=$(basename "$src")
+        dst=$RETROPI_ROMS/$sys
+        if [ -L "$dst" ] || [ ! -e "$dst" ]; then
+            ln -sfn "${src%/}" "$dst"
+            log "linked $sys -> ${src%/}"
+        fi
+    done
+    chown -h -R "$RETROPI_USER":"$RETROPI_USER" "$RETROPI_ROMS" 2>/dev/null || true
+}
+
+cmd_umount() {
+    systemctl disable --now "$AUTO_NAME" "$UNIT_NAME" 2>/dev/null || true
+    find "$RETROPI_ROMS" -maxdepth 1 -type l -lname "$NET_MOUNT/*" -delete 2>/dev/null || true
+    log "network library detached"
+}
+
+cmd_status() {
+    printf 'local library : %s (%s entries)\n' "$RETROPI_ROMS" \
+        "$(find "$RETROPI_ROMS" -mindepth 2 -maxdepth 2 2>/dev/null | wc -l)"
+    if mountpoint -q "$NET_MOUNT"; then
+        printf 'network share : mounted at %s\n' "$NET_MOUNT"
+    else
+        printf 'network share : %s\n' "$(conf_get library_type 'not configured')"
+    fi
+}
+
+# Called from udev when a USB volume shows up.
+cmd_import_usb() {
+    local dev=${1:?device required} mnt src
+    mnt=$(mktemp -d /run/retropi-usb.XXXXXX)
+    mount -o ro "$dev" "$mnt" 2>/dev/null || { rmdir "$mnt"; exit 0; }
+
+    src=""
+    for cand in ROMs roms Roms games; do
+        [ -d "$mnt/$cand" ] && src=$mnt/$cand && break
+    done
+    if [ -z "$src" ]; then
+        umount "$mnt"; rmdir "$mnt"; exit 0
+    fi
+
+    log "importing games from $dev"
+    mkdir -p "$RETROPI_ROMS"
+    # rsync rather than cp: replugging the same stick is then a no-op.
+    rsync -a --info=progress2 --exclude='.*' "$src/" "$RETROPI_ROMS/"
+    chown -R "$RETROPI_USER":"$RETROPI_USER" "$RETROPI_ROMS"
+    sync
+    umount "$mnt"; rmdir "$mnt"
+    log "import complete"
+    cmd_scan
+}
+
+# Ask the frontend to re-read the library without a restart where it can, and
+# fall back to leaving a flag the session picks up next launch.
+cmd_scan() {
+    mkdir -p "$RETROPI_STATE"
+    : > "$RETROPI_STATE/library-dirty"
+    chown -R "$RETROPI_USER":"$RETROPI_USER" "$RETROPI_STATE" 2>/dev/null || true
+}
+
+case ${1:-status} in
+    mount)      cmd_mount ;;
+    umount)     cmd_umount ;;
+    status)     cmd_status ;;
+    import-usb) shift; cmd_import_usb "$@" ;;
+    scan)       cmd_scan ;;
+    *) die "usage: retropi-library {mount|umount|status|import-usb <dev>|scan}" ;;
+esac

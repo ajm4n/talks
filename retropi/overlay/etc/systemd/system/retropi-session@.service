@@ -1,0 +1,21 @@
+[Unit]
+Description=RetroPi game session for %i
+After=systemd-user-sessions.service bluetooth.service sound.target
+Wants=bluetooth.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+User=%i
+ExecStart=/opt/retropi/bin/retropi-session
+Restart=always
+RestartSec=3
+StandardInput=tty
+StandardOutput=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+PAMName=login
+
+[Install]
+WantedBy=multi-user.target

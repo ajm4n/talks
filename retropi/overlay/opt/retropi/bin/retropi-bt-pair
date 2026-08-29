@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+# Hands-free Bluetooth gamepad pairing.
+#
+#   retropi-bt-pair daemon   - long-running: reconnects known pads, and opens a
+#                              pairing window whenever no pad is connected.
+#   retropi-bt-pair pair [s] - one-shot pairing window (default 60s), used by
+#                              the first-boot wizard and the frontend's
+#                              "Add controller" entry.
+#   retropi-bt-pair status   - list connected pads, exit 1 if none.
+#   retropi-bt-pair forget   - unpair every known gamepad.
+set -uo pipefail
+. /opt/retropi/lib/common.sh
+
+# Names that identify a gamepad when the device class is unhelpful, which is
+# most of the time on cheap clones.
+NAME_RE='8bitdo|dualshock|dualsense|wireless controller|xbox|pro controller|joy-?con|stadia|nimbus|gamepad|joystick|retroflag|gamesir|ipega|steelseries|shanwan|betop'
+# Bluetooth major/minor class for a peripheral/gamepad or joystick.
+CLASS_RE='0x0*(00|20)(05|25)(04|08)'
+
+bt() { bluetoothctl "$@" 2>/dev/null; }
+
+adapter_up() {
+    bt power on >/dev/null
+    bt agent NoInputNoOutput >/dev/null
+    bt default-agent >/dev/null
+    bt pairable on >/dev/null
+    bt discoverable off >/dev/null
+}
+
+# Print "MAC<TAB>Name" for every device bluetoothctl currently knows about.
+list_devices() { bt devices | sed -n 's/^Device \([0-9A-F:]\{17\}\) \(.*\)$/\1\t\2/p'; }
+
+info_field() { bt info "$1" | sed -n "s/^[[:space:]]*$2:[[:space:]]*//p" | head -n1; }
+
+is_gamepad() {
+    local mac=$1 name=$2 icon class
+    icon=$(info_field "$mac" Icon)
+    [ "$icon" = "input-gaming" ] && return 0
+    class=$(info_field "$mac" Class)
+    [[ $class =~ $CLASS_RE ]] && return 0
+    shopt -s nocasematch
+    [[ $name =~ $NAME_RE ]] && { shopt -u nocasematch; return 0; }
+    shopt -u nocasematch
+    return 1
+}
+
+is_connected() { [ "$(info_field "$1" Connected)" = "yes" ]; }
+is_paired()    { [ "$(info_field "$1" Paired)" = "yes" ]; }
+
+connected_pads() {
+    local mac name
+    while IFS=$'\t' read -r mac name; do
+        [ -n "$mac" ] || continue
+        is_connected "$mac" && is_gamepad "$mac" "$name" && printf '%s\t%s\n' "$mac" "$name"
+    done < <(list_devices)
+}
+
+# Bring back pads we have paired before. Cheap, so it runs on every loop.
+reconnect_known() {
+    local mac name rc=1
+    while IFS=$'\t' read -r mac name; do
+        [ -n "$mac" ] || continue
+        is_gamepad "$mac" "$name" || continue
+        is_paired "$mac" || continue
+        if is_connected "$mac"; then rc=0; continue; fi
+        log "reconnecting $name ($mac)"
+        bt connect "$mac" >/dev/null && rc=0
+    done < <(list_devices)
+    return $rc
+}
+
+pair_window() {
+    local timeout=${1:-60} deadline mac name paired=0
+    adapter_up
+    log "pairing window open for ${timeout}s - hold your controller's pair button now"
+    bt --timeout "$timeout" scan on >/dev/null &
+    local scan_pid=$!
+    deadline=$(( $(date +%s) + timeout ))
+
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+        while IFS=$'\t' read -r mac name; do
+            [ -n "$mac" ] || continue
+            is_connected "$mac" && continue
+            is_gamepad "$mac" "$name" || continue
+
+            log "found $name ($mac)"
+            if ! is_paired "$mac"; then
+                bt pair "$mac" >/dev/null || { warn "pair failed for $mac"; continue; }
+            fi
+            bt trust "$mac" >/dev/null
+            if bt connect "$mac" >/dev/null; then
+                log "connected $name"
+                paired=1
+                # Give RetroArch/ES a moment to see the new evdev node.
+                sleep 2
+                break 2
+            fi
+        done < <(list_devices)
+        sleep 2
+    done
+
+    kill "$scan_pid" 2>/dev/null
+    bt scan off >/dev/null 2>&1
+    [ "$paired" -eq 1 ]
+}
+
+cmd_status() {
+    local out
+    out=$(connected_pads)
+    [ -n "$out" ] || { echo "no controller connected"; return 1; }
+    printf '%s\n' "$out"
+}
+
+cmd_forget() {
+    local mac name
+    while IFS=$'\t' read -r mac name; do
+        is_gamepad "$mac" "$name" || continue
+        log "removing $name ($mac)"
+        bt remove "$mac" >/dev/null
+    done < <(list_devices)
+}
+
+cmd_daemon() {
+    local idle_pair_window=45 quiet_secs=0
+    adapter_up
+    while true; do
+        if reconnect_known || [ -n "$(connected_pads)" ]; then
+            quiet_secs=0
+            sleep 10
+            continue
+        fi
+        # Nothing connected. Open a pairing window, then back off so we are not
+        # scanning non-stop and eating the 2.4GHz band Wi-Fi is also using.
+        pair_window "$idle_pair_window" || quiet_secs=$(( quiet_secs + idle_pair_window ))
+        sleep 15
+    done
+}
+
+case ${1:-daemon} in
+    daemon) cmd_daemon ;;
+    pair)   pair_window "${2:-60}" ;;
+    status) cmd_status ;;
+    forget) cmd_forget ;;
+    *) die "usage: retropi-bt-pair {daemon|pair [seconds]|status|forget}" ;;
+esac

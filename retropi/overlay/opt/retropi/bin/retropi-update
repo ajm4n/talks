@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# Post-install fetches that need the network, split out of the installer so a
+# box built offline can pull them later.
+#
+#   retropi-update              everything below that is missing
+#   retropi-update --frontend   (re)install the ES-DE frontend
+#   retropi-update --cores      libretro cores from apt
+#   retropi-update --autoconfig controller profiles for RetroArch
+#   retropi-update --streaming  moonlight-embedded for PC game streaming
+#   retropi-update --system     apt upgrade
+set -uo pipefail
+. /opt/retropi/lib/common.sh
+[ "$(id -u)" -eq 0 ] || die "run me with sudo"
+
+ESDE_VERSION=${ESDE_VERSION:-$(conf_get esde_version 3.2.0)}
+ESDE_URL=${ESDE_URL:-$(conf_get esde_url "https://gitlab.com/es-de/emulationstation-de/-/package_files/download/ES-DE_${ESDE_VERSION}-aarch64.AppImage")}
+ESDE_TARGET=$RETROPI_PREFIX/share/ES-DE.AppImage
+
+do_frontend() {
+    log "installing ES-DE $ESDE_VERSION"
+    local tmp; tmp=$(mktemp /tmp/esde.XXXXXX)
+    if curl -fL --retry 3 --connect-timeout 20 -o "$tmp" "$ESDE_URL"; then
+        # An HTML error page is still a 200 from some mirrors; check the magic.
+        if head -c 4 "$tmp" | grep -q ELF; then
+            install -m 0755 "$tmp" "$ESDE_TARGET"
+            log "ES-DE installed at $ESDE_TARGET"
+        else
+            warn "download was not an AppImage - leaving the existing frontend in place"
+        fi
+    else
+        warn "could not download ES-DE; the RetroArch menu stays as the frontend"
+        warn "set esde_url in $RETROPI_CONF to a mirror and re-run"
+    fi
+    rm -f "$tmp"
+
+    # Layer our extra systems (streaming) over whatever ES-DE ships.
+    local cfg=$RETROPI_HOME/ES-DE/custom_systems
+    mkdir -p "$cfg"
+    cp "$RETROPI_PREFIX/share/es-de/es_systems.xml" "$cfg/es_systems.xml"
+    chown -R "$RETROPI_USER":"$RETROPI_USER" "$RETROPI_HOME/ES-DE"
+}
+
+do_cores() {
+    log "installing libretro cores"
+    apt-get update -qq
+    # Everything Debian packages for arm64 that is worth having; missing names
+    # are skipped one by one rather than failing the whole run.
+    local cores=(
+        libretro-beetle-pce-fast libretro-beetle-psx libretro-beetle-vb
+        libretro-beetle-wswan libretro-bsnes-mercury-accuracy libretro-desmume
+        libretro-fceumm libretro-gambatte libretro-genesisplusgx
+        libretro-mgba libretro-mupen64plus-next libretro-nestopia
+        libretro-pcsx-rearmed libretro-snes9x libretro-stella
+        libretro-vecx libretro-virtualjaguar libretro-yabause
+    )
+    for c in "${cores[@]}"; do
+        apt-get install -y --no-install-recommends "$c" >/dev/null 2>&1 \
+            && log "  + $c" || true
+    done
+    log "more cores are available in RetroArch: Main Menu > Online Updater"
+}
+
+do_autoconfig() {
+    # RetroArch's own controller profiles - this is what makes a pad Just Work
+    # the moment it connects, with no button-mapping screen.
+    local dst=$RETROPI_HOME/.config/retroarch/autoconfig
+    log "fetching joypad autoconfig profiles"
+    mkdir -p "$dst"
+    local tmp; tmp=$(mktemp -d)
+    if git clone --depth 1 -q https://github.com/libretro/retroarch-joypad-autoconfig "$tmp/ac" 2>/dev/null; then
+        cp -r "$tmp/ac"/* "$dst"/ 2>/dev/null
+        rm -rf "$dst/.git"
+        log "  installed $(find "$dst" -name '*.cfg' | wc -l) controller profiles"
+    else
+        warn "could not fetch controller profiles; RetroArch will fall back to its bundled set"
+    fi
+    rm -rf "$tmp"
+    chown -R "$RETROPI_USER":"$RETROPI_USER" "$RETROPI_HOME/.config/retroarch"
+}
+
+do_streaming() {
+    log "installing moonlight-embedded"
+    if ! [ -f /etc/apt/sources.list.d/moonlight.list ]; then
+        curl -fsSL https://dl.cloudsmith.io/public/moonlight-game-streaming/moonlight-embedded/gpg.C930A2CBBEED0BDC.key \
+            | gpg --dearmor -o /usr/share/keyrings/moonlight.gpg 2>/dev/null \
+            || { warn "could not add the moonlight repo"; return 1; }
+        local codename; codename=$(. /etc/os-release && echo "${VERSION_CODENAME:-bookworm}")
+        printf 'deb [signed-by=/usr/share/keyrings/moonlight.gpg] https://dl.cloudsmith.io/public/moonlight-game-streaming/moonlight-embedded/deb/raspbian %s main\n' \
+            "$codename" > /etc/apt/sources.list.d/moonlight.list
+    fi
+    apt-get update -qq
+    apt-get install -y moonlight-embedded >/dev/null 2>&1 \
+        && log "moonlight installed - pair with: retropi-stream pair <pc-ip>" \
+        || warn "moonlight-embedded is not available for this release; skipping"
+}
+
+do_system() { apt-get update -qq && apt-get -y upgrade; }
+
+if [ $# -eq 0 ]; then
+    do_cores; do_autoconfig; do_frontend; do_streaming
+else
+    for arg in "$@"; do
+        case $arg in
+            --frontend)   do_frontend ;;
+            --cores)      do_cores ;;
+            --autoconfig) do_autoconfig ;;
+            --streaming)  do_streaming ;;
+            --system)     do_system ;;
+            --all)        do_system; do_cores; do_autoconfig; do_frontend; do_streaming ;;
+            *) die "unknown option $arg" ;;
+        esac
+    done
+fi

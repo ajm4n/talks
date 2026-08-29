@@ -1,0 +1,14 @@
+[Unit]
+Description=RetroPi first-run downloads (cores, controller profiles, frontend)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/retropi/firstrun.done
+
+[Service]
+Type=oneshot
+ExecStart=/opt/retropi/bin/retropi-update --cores --autoconfig --frontend --streaming
+ExecStartPost=/bin/touch /var/lib/retropi/firstrun.done
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

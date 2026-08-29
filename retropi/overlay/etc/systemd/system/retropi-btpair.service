@@ -1,0 +1,14 @@
+[Unit]
+Description=RetroPi Bluetooth controller autopairing
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'until bluetoothctl show >/dev/null 2>&1; do sleep 1; done'
+ExecStart=/opt/retropi/bin/retropi-bt-pair daemon
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+# Copy games off any USB volume that carries a top-level ROMs directory.
+# Guarded by usb_import in retropi.conf; the handler exits quietly otherwise.
+ACTION=="add", KERNEL=="sd[a-z][0-9]", SUBSYSTEMS=="usb", \
+  ENV{ID_FS_USAGE}=="filesystem", \
+  TAG+="systemd", ENV{SYSTEMD_WANTS}+="retropi-usb-import@%k.service"
+
+# Gamepads: readable by the console user without a seat/logind dance, and
+# nudge the frontend so a pad plugged in mid-menu is picked up.
+SUBSYSTEM=="input", ATTRS{name}=="*Controller*", MODE="0660", GROUP="input"
+SUBSYSTEM=="input", ATTRS{name}=="*Gamepad*",    MODE="0660", GROUP="input"
+KERNEL=="js[0-9]*", MODE="0660", GROUP="input"
