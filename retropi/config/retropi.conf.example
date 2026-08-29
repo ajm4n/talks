@@ -30,6 +30,6 @@ stream_bitrate = 20000
 stream_codec = h264
 
 # --- frontend ----------------------------------------------------------------
-# Pin the ES-DE release, or give a full URL for an offline mirror.
-esde_version = 3.2.0
+# By default the newest ES-DE aarch64 AppImage is resolved from the project's
+# release API. Set a full URL here to pin a version or use an offline mirror.
 # esde_url =

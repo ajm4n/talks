@@ -8,6 +8,7 @@
 #   retropi-update --autoconfig controller profiles for RetroArch
 #   retropi-update --streaming  moonlight-embedded for PC game streaming
 #   retropi-update --system     apt upgrade
+#   retropi-update --missing    only fetch what is not already installed
 set -uo pipefail
 # Resolve our own install prefix, so these run identically from /opt/retropi
 # and from a source checkout (overlay$RETROPI_BIN/...).
@@ -15,18 +16,37 @@ set -uo pipefail
 . "$RETROPI_PREFIX/lib/common.sh"
 [ "$(id -u)" -eq 0 ] || die "run me with sudo"
 
-ESDE_VERSION=${ESDE_VERSION:-$(conf_get esde_version 3.2.0)}
-ESDE_URL=${ESDE_URL:-$(conf_get esde_url "https://gitlab.com/es-de/emulationstation-de/-/package_files/download/ES-DE_${ESDE_VERSION}-aarch64.AppImage")}
 ESDE_TARGET=$RETROPI_PREFIX/share/ES-DE.AppImage
+ESDE_API="https://gitlab.com/api/v4/projects/es-de%2Femulationstation-de/releases?per_page=5"
+# Verified-good direct link, used when the API is unreachable. ES-DE publishes
+# release assets under opaque numeric ids, so this has to be a real id rather
+# than a constructed filename - a guessed URL just redirects to a login page.
+ESDE_FALLBACK_URL="https://gitlab.com/es-de/emulationstation-de/-/package_files/326321114/download"
+
+# Ask ES-DE for the newest aarch64 AppImage so this does not rot at a pinned
+# version; fall back to the known-good link, and let retropi.conf override both.
+esde_url() {
+    local override url
+    override=$(conf_get esde_url "")
+    [ -n "$override" ] && { printf '%s' "$override"; return; }
+    if have jq; then
+        url=$(curl -fsSL --max-time 30 "$ESDE_API" 2>/dev/null \
+            | jq -r '.[].assets.links[]? | select(.name | test("aarch64.*AppImage")) | .url' 2>/dev/null \
+            | head -n1)
+        [ -n "$url" ] && { printf '%s' "$url"; return; }
+    fi
+    printf '%s' "$ESDE_FALLBACK_URL"
+}
 
 do_frontend() {
-    log "installing ES-DE $ESDE_VERSION"
+    local url; url=$(esde_url)
+    log "installing ES-DE from $url"
     local tmp; tmp=$(mktemp /tmp/esde.XXXXXX)
-    if curl -fL --retry 3 --connect-timeout 20 -o "$tmp" "$ESDE_URL"; then
+    if curl -fL --retry 3 --connect-timeout 20 -o "$tmp" "$url"; then
         # An HTML error page is still a 200 from some mirrors; check the magic.
-        if head -c 4 "$tmp" | grep -q ELF; then
+        if head -c 4 "$tmp" | grep -q ELF && [ "$(stat -c %s "$tmp")" -gt 50000000 ]; then
             install -m 0755 "$tmp" "$ESDE_TARGET"
-            log "ES-DE installed at $ESDE_TARGET"
+            log "ES-DE installed at $ESDE_TARGET ($(du -h "$ESDE_TARGET" | cut -f1))"
         else
             warn "download was not an AppImage - leaving the existing frontend in place"
         fi
@@ -99,6 +119,14 @@ do_streaming() {
 
 do_system() { apt-get update -qq && apt-get -y upgrade; }
 
+do_missing() {
+    [ -x "$ESDE_TARGET" ] || do_frontend
+    [ -n "$(ls -A "$RETROPI_HOME/.config/retroarch/autoconfig" 2>/dev/null)" ] || do_autoconfig
+    ls /usr/lib/*/libretro/*.so >/dev/null 2>&1 || do_cores
+    have moonlight || do_streaming
+    log "nothing else missing"
+}
+
 if [ $# -eq 0 ]; then
     do_cores; do_autoconfig; do_frontend; do_streaming
 else
@@ -109,6 +137,7 @@ else
             --autoconfig) do_autoconfig ;;
             --streaming)  do_streaming ;;
             --system)     do_system ;;
+            --missing)    do_missing ;;
             --all)        do_system; do_cores; do_autoconfig; do_frontend; do_streaming ;;
             *) die "unknown option $arg" ;;
         esac

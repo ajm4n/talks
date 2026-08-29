@@ -4,16 +4,25 @@ A build kit that turns a Raspberry Pi into a console: power on, it lands in a
 game menu, your Bluetooth pad is already connected, and nothing wants a
 keyboard ever again.
 
-Two ways to use it:
+## Getting it running
+
+Use this route. It is the tested one and it is two steps:
 
 ```bash
-# A) build a flashable image on a Linux box (pi-gen under the hood)
-sudo ./build-image.sh --hostname retropi --user pi --pass hunter2
-# -> pi-gen/pi-gen/deploy/RetroPi-*-retropi.img.xz
-
-# B) or provision a Pi you already have, on top of Raspberry Pi OS Lite (64-bit)
+# 1. Flash Raspberry Pi OS Lite (64-bit) with Raspberry Pi Imager.
+#    Set your username, Wi-Fi and enable SSH in Imager's settings screen.
+# 2. On the Pi:
+git clone <this repo> && cd retropi
 sudo ./install.sh && sudo reboot
 ```
+
+That is it. The install pulls down the frontend, cores and controller profiles,
+so once it finishes the Pi needs no network to play anything local.
+
+There is also `build-image.sh`, which drives pi-gen to produce a flashable
+`.img.xz`. **It is unverified** - see *Status* below. The install route above
+reaches the identical end state, so prefer it unless you specifically need to
+flash many cards.
 
 ## What you get
 
@@ -102,6 +111,19 @@ A VM covers all of the software and none of the hardware: no Bluetooth adapter
 and no GPU, so pairing and rendering still need the real thing (or a USB
 Bluetooth dongle passed through to the VM). `test/README.md` has the details,
 and `test/smoke-test.sh` is what to run over ssh after the first real boot.
+
+## Status
+
+Honest accounting of what has and has not been exercised:
+
+| | |
+|---|---|
+| Script logic (pairing, config, library, streaming) | tested - `test/unit/run.sh`, 37 assertions against stubbed hardware |
+| `install.sh` file placement, ownership, idempotency | tested - `test/container-test.sh`, 24 assertions in a real container |
+| Units, sudoers, XML, path consistency | tested - `test/lint.sh` |
+| ES-DE download URL | verified - resolves via the release API and returns a real 132MB aarch64 AppImage |
+| `build-image.sh` end to end | **not verified.** Reaches pi-gen's stage0 and then fails in the sandbox it was attempted in: apt cannot verify Debian's archive signatures inside a foreign-architecture chroot under emulation, even though the archive is genuine, the keys are present, and `gpgv` verifies correctly when invoked directly. Two real bugs were found and fixed by attempting it (stage path resolution, and a missing Debian keyring on Ubuntu hosts). It may well work on a normal Debian host; nobody has seen it finish. |
+| On real Pi hardware | **not verified.** No Pi was involved at any point. Run `test/smoke-test.sh` after first boot. |
 
 ## Requirements
 

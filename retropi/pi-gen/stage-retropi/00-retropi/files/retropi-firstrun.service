@@ -6,7 +6,7 @@ ConditionPathExists=!/var/lib/retropi/firstrun.done
 
 [Service]
 Type=oneshot
-ExecStart=/opt/retropi/bin/retropi-update --cores --autoconfig --frontend --streaming
+ExecStart=/opt/retropi/bin/retropi-update --missing
 ExecStartPost=/bin/touch /var/lib/retropi/firstrun.done
 TimeoutStartSec=3600
 
