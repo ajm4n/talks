@@ -42,12 +42,9 @@ if [ ! -d "$PIGEN_DIR" ]; then
     git clone --depth 1 -b "$PIGEN_BRANCH" https://github.com/RPi-Distro/pi-gen "$PIGEN_DIR"
 fi
 
-# pi-gen only runs stages it finds in its own tree, so link ours in.
+# pi-gen only runs stages it finds in its own tree, so link ours in. The stage
+# resolves our source tree from its own real path, so no other links are needed.
 ln -sfn "$HERE/pi-gen/stage-retropi" "$PIGEN_DIR/stage-retropi"
-# Our stage reads siblings of the stage dir; keep those paths valid.
-ln -sfn "$HERE/overlay"   "$HERE/pi-gen/overlay"
-ln -sfn "$HERE/config"    "$HERE/pi-gen/config"
-ln -sfn "$HERE/install.sh" "$HERE/pi-gen/install.sh"
 
 # Stop after stage2 (Lite) plus ours - no desktop, nothing we do not use.
 touch "$PIGEN_DIR/stage3/SKIP" "$PIGEN_DIR/stage4/SKIP" "$PIGEN_DIR/stage5/SKIP" 2>/dev/null || true

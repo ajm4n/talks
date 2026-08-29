@@ -1,30 +1,35 @@
 #!/bin/bash -e
+# Resolve the RetroPi source tree from this script's own real location, since
+# pi-gen's BASE_DIR points at pi-gen's root, not at ours, and this stage is
+# reached through a symlink.
+RETROPI_SRC=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../.." && pwd)
+
 # Runs inside pi-gen against the image rootfs. The packages in ../00-packages
 # are already installed, so this reuses install.sh with the package step and
 # the network fetches turned off - pi-gen has no working service manager and
 # the AppImage is fetched on first boot instead.
 
 install -d "${ROOTFS_DIR}/usr/local/src/retropi"
-cp -r "${BASE_DIR}/../overlay"   "${ROOTFS_DIR}/usr/local/src/retropi/"
-cp -r "${BASE_DIR}/../config"    "${ROOTFS_DIR}/usr/local/src/retropi/"
-cp    "${BASE_DIR}/../install.sh" "${ROOTFS_DIR}/usr/local/src/retropi/"
+cp -r "${RETROPI_SRC}/overlay"   "${ROOTFS_DIR}/usr/local/src/retropi/"
+cp -r "${RETROPI_SRC}/config"    "${ROOTFS_DIR}/usr/local/src/retropi/"
+cp    "${RETROPI_SRC}/install.sh" "${ROOTFS_DIR}/usr/local/src/retropi/"
 
 # Overlay straight in - no chroot service juggling.
-cp -r "${BASE_DIR}/../overlay/opt/retropi/." "${ROOTFS_DIR}/opt/retropi/" 2>/dev/null || {
+cp -r "${RETROPI_SRC}/overlay/opt/retropi/." "${ROOTFS_DIR}/opt/retropi/" 2>/dev/null || {
     install -d "${ROOTFS_DIR}/opt/retropi"
-    cp -r "${BASE_DIR}/../overlay/opt/retropi/." "${ROOTFS_DIR}/opt/retropi/"
+    cp -r "${RETROPI_SRC}/overlay/opt/retropi/." "${ROOTFS_DIR}/opt/retropi/"
 }
-cp -r "${BASE_DIR}/../overlay/etc/." "${ROOTFS_DIR}/etc/"
+cp -r "${RETROPI_SRC}/overlay/etc/." "${ROOTFS_DIR}/etc/"
 chmod +x "${ROOTFS_DIR}/opt/retropi/bin/"*
 chmod 0440 "${ROOTFS_DIR}/etc/sudoers.d/retropi"
 install -d "${ROOTFS_DIR}/var/lib/retropi"
 install -d "${ROOTFS_DIR}/boot/firmware/retropi"
-install -m 0644 "${BASE_DIR}/../config/retropi.conf.example" \
+install -m 0644 "${RETROPI_SRC}/config/retropi.conf.example" \
     "${ROOTFS_DIR}/boot/firmware/retropi/retropi.conf"
 
 # Cores, controller profiles and the frontend are fetched on the first boot the
 # Pi has network, so the image stays small and never ships a stale AppImage.
-install -m 0644 "${BASE_DIR}/00-retropi/files/retropi-firstrun.service" \
+install -m 0644 "${RETROPI_SRC}/pi-gen/stage-retropi/00-retropi/files/retropi-firstrun.service" \
     "${ROOTFS_DIR}/etc/systemd/system/retropi-firstrun.service"
 
 on_chroot << CHROOT
