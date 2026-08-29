@@ -37,6 +37,15 @@ done
 
 [ "$(id -u)" -eq 0 ] || { echo "pi-gen needs root; re-run with sudo" >&2; exit 1; }
 
+# Building on Ubuntu is common and almost works: Ubuntu ships only its own
+# keyrings, so debootstrap cannot verify Debian's archive and the chroot's apt
+# fails with NO_PUBKEY several minutes in. Catch it here instead.
+if [ ! -f /usr/share/keyrings/debian-archive-keyring.gpg ]; then
+    echo "[retropi] installing debian-archive-keyring (required to bootstrap Debian)"
+    apt-get update -qq && apt-get install -y debian-archive-keyring \
+        || { echo "could not install debian-archive-keyring" >&2; exit 1; }
+fi
+
 if [ ! -d "$PIGEN_DIR" ]; then
     echo "[retropi] fetching pi-gen ($PIGEN_BRANCH)"
     git clone --depth 1 -b "$PIGEN_BRANCH" https://github.com/RPi-Distro/pi-gen "$PIGEN_DIR"
