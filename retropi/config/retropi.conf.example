@@ -21,6 +21,15 @@ library_writable = no
 # Copy games off any USB stick that has a top-level ROMs/ folder.
 usb_import = yes
 
+# --- library portal ---------------------------------------------------------
+# A web UI on the Pi for adding and managing your own games: drag files in from
+# any browser on your network. http://retropi.local:8080
+portal_enabled = yes
+portal_port = 8080
+# Leave blank and anyone on your network can upload. Set a shared secret to
+# require it, then use http://retropi.local:8080/?token=YOURSECRET
+portal_token =
+
 # --- streaming from a gaming PC ----------------------------------------------
 # Point this at a PC running Sunshine (or GeForce Experience) and its library
 # shows up in the frontend as another system.

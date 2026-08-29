@@ -1,0 +1,31 @@
+[Unit]
+Description=RetroPi library portal (web UI for managing your game library)
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=%i
+ExecStart=/opt/retropi/bin/retropi-portal
+Restart=always
+RestartSec=5
+
+# It accepts uploads from the network, so give it only what it needs: no new
+# privileges, a private /tmp, and write access to the library and state dir only.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=tmpfs
+BindPaths=/home/%i
+ReadWritePaths=/var/lib/retropi /home/%i/ROMs
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target

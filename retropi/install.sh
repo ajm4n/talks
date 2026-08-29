@@ -184,6 +184,7 @@ systemctl enable bluetooth >/dev/null
 systemctl enable retropi-btpair.service >/dev/null
 systemctl enable retropi-library.service >/dev/null
 systemctl enable "retropi-session@$TARGET_USER.service" >/dev/null
+systemctl enable "retropi-portal@$TARGET_USER.service" >/dev/null
 # The session owns tty1; a login prompt fighting it for the TTY is the classic
 # "black screen with a blinking cursor" failure.
 systemctl disable getty@tty1.service >/dev/null 2>&1 || true
@@ -212,6 +213,9 @@ cat <<DONE
 
   Reboot and it comes up straight in the game menu:   sudo reboot
 
+  Library portal         http://$(hostname):$(  \
+      sed -n 's/^[[:space:]]*portal_port[[:space:]]*=[[:space:]]*//p' \
+      "$BOOTDIR/retropi/retropi.conf" 2>/dev/null | tail -n1 || echo 8080)
   Games go in            $TARGET_HOME/ROMs/<system>/
   or over the network at \\\\$(hostname)\\ROMs
   Controller pairing     automatic; hold the pad's pair button

@@ -32,6 +32,7 @@ flash many cards.
 | **Emulation** | RetroArch with a tuned baseline config, integer scaling, rewind, auto save-states, and the libretro controller profiles so a pad works the second it connects. Cores from Debian, plus RetroArch's own online updater for the rest. |
 | **Frontend** | ES-DE (EmulationStation Desktop Edition), auto-started on tty1 in a bare X session with no desktop behind it. If the download ever fails the session falls back to RetroArch's Ozone menu rather than dumping you at a console. |
 | **Library** | Games on the SD card, on a USB stick (plug it in, it imports itself), or on a NAS share mounted on demand so they play over the network without filling the card. `~/ROMs` is also shared over SMB, so you can drag files across from your desktop. |
+| **Library portal** | A web UI on the Pi at `http://retropi.local:8080` — drag your own game files in from any browser on your network, see what is installed, and get told which BIOS files are missing. Stdlib Python, no dependencies. Set `portal_token` if you do not want it open to everyone on the LAN. |
 | **Streaming** | Moonlight is wired into the frontend as its own "system". Point it at a PC running Sunshine and that PC's library shows up next to your emulated systems and launches the same way. |
 | **First boot** | A one-time on-screen wizard: Wi-Fi, controller, where your games live, streaming host. Every answer can be pre-filled by editing `retropi.conf` on the boot partition from any machine, in which case the wizard skips it. |
 
@@ -91,6 +92,7 @@ docs/                       controllers, library, streaming, troubleshooting
 | `sudo retropi-library mount` \| `umount` \| `status` | attach or detach the network library |
 | `retropi-stream pair <ip>` \| `list` \| `sync` | set up PC streaming, refresh the app list |
 | `sudo retropi-update [--cores\|--frontend\|--autoconfig\|--streaming]` | fetch or refresh the online bits |
+| `retropi-portal` | the library web UI (normally run by `retropi-portal@<user>.service`) |
 
 ## Testing
 

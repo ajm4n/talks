@@ -237,6 +237,16 @@ if test_case "library: refuses an incomplete share config"; then
     rm -rf "$D"
 fi
 
+# ================================================================= portal ====
+if test_case "portal: adversarial path handling"; then
+    if out=$(python3 "$ROOT/test/unit/test_portal.py" 2>&1); then
+        n=$(printf '%s' "$out" | grep -c '^  ok')
+        PASS=$((PASS + n)); green "  ok   $n path-safety assertions"
+    else
+        FAIL=$((FAIL + 1)); red "  FAIL portal path handling"; printf '%s\n' "$out" | grep -A2 FAIL
+    fi
+fi
+
 # ================================================================= report ====
 printf '\n\033[1m%d passed, %d failed\033[0m\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -6,3 +6,5 @@ pi-gen/pi-gen/
 deploy/
 *.img
 *.img.xz
+__pycache__/
+*.pyc

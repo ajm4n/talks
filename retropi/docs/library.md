@@ -22,6 +22,37 @@ to leave the folder there.
 
 Turn it off with `usb_import = no`.
 
+## From your browser (the portal)
+
+The easiest route for most people. Open `http://retropi.local:8080` on any
+machine on your network, pick a system, and drag files in.
+
+It also shows what is already installed and which BIOS files are missing —
+the usual explanation for a core that boots to a black screen.
+
+By default anyone on your network can upload. To lock it down, set a secret in
+`retropi.conf`:
+
+```ini
+portal_token = something-long-and-random
+```
+
+then use `http://retropi.local:8080/?token=something-long-and-random`. Reads
+stay open; uploads and deletes require the token.
+
+Because it accepts files from the network, the portal is deliberately narrow:
+it only writes into `~/ROMs/<system>/`, only accepts a fixed list of game and
+disc-image extensions, refuses hidden files and anything with a path separator
+in it, and verifies the resolved path is genuinely inside the library before
+writing — including when a system directory is a symlink to a network share.
+Uploads land in a temporary file and are renamed into place, so a dropped
+connection never leaves a half-copied game in the menu. The systemd unit runs
+it unprivileged with `ProtectSystem=strict` and write access to the library and
+state directory only. Those rules are covered by 43 adversarial tests in
+`test/unit/test_portal.py`.
+
+Turn it off entirely with `portal_enabled = no`.
+
 ## From a NAS or PC share
 
 The interesting one for a big collection: the games stay on the server and the

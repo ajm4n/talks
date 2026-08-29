@@ -1,0 +1,496 @@
+#!/usr/bin/env python3
+"""RetroPi library portal.
+
+A small web UI on the Pi for managing your own game library: drag files in from
+any browser on the network, see what is installed, and find missing BIOS files.
+
+Deliberately stdlib-only - no pip, no venv, nothing to break on an upgrade.
+
+It uploads by PUT with the filename in the path rather than multipart forms, so
+there is no form parser to get wrong, and every write goes through one
+path-safety function that is unit-tested.
+
+Config (from retropi.conf on the boot partition):
+    portal_enabled = yes
+    portal_port    = 8080
+    portal_token   = <optional shared secret; required for writes when set>
+"""
+import html
+import json
+import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import unicodedata
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+
+PREFIX = Path(os.environ.get("RETROPI_PREFIX", "/opt/retropi"))
+STATE = Path(os.environ.get("RETROPI_STATE", "/var/lib/retropi"))
+
+# Extensions we are willing to write. Anything else is refused outright: this is
+# a games directory, not general file storage, and the emulators only ever open
+# these. Archives are allowed because most cores read them directly.
+ALLOWED_EXT = {
+    ".nes", ".fds", ".unf", ".sfc", ".smc", ".fig", ".gb", ".gbc", ".gba",
+    ".n64", ".z64", ".v64", ".nds", ".gg", ".gen", ".md", ".smd", ".sms",
+    ".32x", ".iso", ".cue", ".bin", ".chd", ".pbp", ".img", ".mdf", ".ccd",
+    ".sub", ".gdi", ".cdi", ".a26", ".a78", ".lnx", ".ngp", ".ngc", ".ws",
+    ".wsc", ".pce", ".sgx", ".vec", ".vb", ".col", ".int", ".d64", ".t64",
+    ".tap", ".prg", ".adf", ".dsk", ".ipf", ".rom", ".zip", ".7z", ".rar",
+    ".m3u", ".cso", ".wbfs", ".rvz", ".nsp", ".xci", ".stream",
+}
+MAX_UPLOAD = 8 * 1024 * 1024 * 1024        # 8 GiB, enough for a dual-layer disc
+SYSTEM_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")
+
+# Cores that will boot to a black screen without a BIOS, and what they want.
+BIOS_HINTS = {
+    "psx":       ["scph5500.bin", "scph5501.bin", "scph5502.bin"],
+    "saturn":    ["sega_101.bin", "mpr-17933.bin"],
+    "dreamcast": ["dc_boot.bin", "dc_flash.bin"],
+    "pcenginecd": ["syscard3.pce"],
+    "segacd":    ["bios_CD_E.bin", "bios_CD_U.bin", "bios_CD_J.bin"],
+}
+
+
+def conf_get(key, default=""):
+    """Read one key from retropi.conf, mirroring the shell helper."""
+    for d in ("/boot/firmware/retropi", "/boot/retropi"):
+        p = Path(d) / "retropi.conf"
+        if p.is_file():
+            try:
+                for line in p.read_text(errors="replace").splitlines():
+                    m = re.match(r"\s*%s\s*=\s*(.*)" % re.escape(key), line)
+                    if m:
+                        return m.group(1).strip().strip('"') or default
+            except OSError:
+                pass
+    return default
+
+
+def roms_dir():
+    env = os.environ.get("RETROPI_ROMS")
+    if env:
+        return Path(env)
+    home = Path(os.path.expanduser("~"))
+    return home / "ROMs"
+
+
+def safe_name(name):
+    """Reduce an arbitrary client-supplied string to a plain filename.
+
+    Everything that could escape the target directory is removed rather than
+    rejected-then-patched: take the basename only, drop anything that is not a
+    conservative character, and refuse the result if it is empty, hidden, or
+    carries an extension we do not serve. Returns None when unusable.
+    """
+    if not name or len(name) > 255:
+        return None
+    # Normalise first, so lookalike unicode cannot smuggle a separator through.
+    name = unicodedata.normalize("NFKC", name)
+    # Take the last component under both separators, defeating a/../b and c:\x.
+    name = name.replace("\\", "/").split("/")[-1]
+    name = name.strip()
+    if name in ("", ".", "..") or name.startswith("."):
+        return None
+    if "\x00" in name:
+        return None
+    cleaned = re.sub(r"[^A-Za-z0-9._ ()\[\]&'!,+-]", "_", name)
+    if cleaned in ("", ".", "..") or cleaned.startswith("."):
+        return None
+    if Path(cleaned).suffix.lower() not in ALLOWED_EXT:
+        return None
+    return cleaned
+
+
+def safe_system(name):
+    """A system directory name: lowercase, no separators, no traversal."""
+    if not name:
+        return None
+    name = unicodedata.normalize("NFKC", name).strip().lower()
+    return name if SYSTEM_RE.match(name) else None
+
+
+def resolve_under(base, *parts):
+    """Join and prove the result really is inside base, following symlinks.
+
+    The character filtering above should make this unreachable, but the check
+    is cheap and it is the thing that actually guarantees containment - the
+    network-library systems are symlinks, so a naive prefix test is not enough.
+    """
+    base = Path(base)
+    target = base.joinpath(*parts)
+    try:
+        base_r = base.resolve()
+        # The file need not exist yet; resolve its parent instead.
+        parent_r = target.parent.resolve()
+    except (OSError, RuntimeError):
+        return None
+    if base_r != parent_r and base_r not in parent_r.parents:
+        return None
+    return parent_r / target.name
+
+
+def list_library():
+    root = roms_dir()
+    systems = []
+    if root.is_dir():
+        for entry in sorted(root.iterdir()):
+            if not entry.is_dir():
+                continue
+            sysname = entry.name
+            if not safe_system(sysname):
+                continue
+            games, size = [], 0
+            try:
+                for f in sorted(entry.iterdir()):
+                    if f.is_file() and not f.name.startswith("."):
+                        try:
+                            st = f.stat()
+                        except OSError:
+                            continue
+                        games.append({"name": f.name, "size": st.st_size})
+                        size += st.st_size
+            except OSError:
+                continue
+            systems.append({
+                "system": sysname,
+                "count": len(games),
+                "bytes": size,
+                "games": games,
+                "network": entry.is_symlink(),
+            })
+    return systems
+
+
+def bios_status():
+    """Report which known BIOS files are present, so a black screen is explained."""
+    sysdir = Path(os.path.expanduser("~")) / ".config/retroarch/system"
+    have = set()
+    if sysdir.is_dir():
+        have = {p.name.lower() for p in sysdir.iterdir() if p.is_file()}
+    out = []
+    for system, files in sorted(BIOS_HINTS.items()):
+        missing = [f for f in files if f.lower() not in have]
+        out.append({"system": system, "missing": missing,
+                    "ok": len(missing) < len(files)})
+    return out
+
+
+def human(n):
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if n < 1024 or unit == "TB":
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024.0
+    return f"{n:.1f} TB"
+
+
+PAGE = """<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RetroPi library</title>
+<style>
+:root{--bg:#14161a;--card:#1c1f26;--fg:#e6e8ec;--dim:#9aa3b2;--line:#2b3038;--accent:#5ac8fa}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+header{padding:20px;border-bottom:1px solid var(--line);display:flex;
+  align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{margin:0;font-size:19px;letter-spacing:.3px}
+.sub{color:var(--dim);font-size:13px}
+main{padding:20px;max-width:940px;margin:0 auto}
+#drop{border:2px dashed var(--line);border-radius:10px;padding:34px;text-align:center;
+  color:var(--dim);transition:.15s;cursor:pointer}
+#drop.hot{border-color:var(--accent);color:var(--fg);background:#1a2530}
+select,button{background:var(--card);color:var(--fg);border:1px solid var(--line);
+  border-radius:7px;padding:8px 12px;font:inherit}
+button{cursor:pointer}
+button:hover{border-color:var(--accent)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0}
+.sys{background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:14px 16px;margin:10px 0}
+.sys h3{margin:0 0 4px;font-size:15px;display:flex;gap:9px;align-items:center}
+.tag{font-size:11px;color:var(--dim);border:1px solid var(--line);
+  border-radius:20px;padding:1px 8px}
+.games{margin:8px 0 0;padding:0;list-style:none;max-height:190px;overflow:auto}
+.games li{display:flex;justify-content:space-between;gap:10px;padding:3px 0;
+  border-bottom:1px solid var(--line);font-size:13px}
+.games li span{color:var(--dim);white-space:nowrap}
+.warn{color:#ffb454}
+#log{margin-top:14px;font-size:13px;color:var(--dim);white-space:pre-wrap}
+a{color:var(--accent)}
+</style>
+<header>
+  <h1>RetroPi library</h1>
+  <span class="sub" id="host"></span>
+</header>
+<main>
+  <div class="row">
+    <label for="sys">Add to</label>
+    <select id="sys"></select>
+    <button id="pick">Choose files…</button>
+    <button id="rescan">Rescan library</button>
+  </div>
+  <div id="drop">Drop game files here</div>
+  <input id="file" type="file" multiple hidden>
+  <div id="log"></div>
+  <h2 style="font-size:16px;margin:26px 0 0">Installed</h2>
+  <div id="lib"></div>
+  <h2 style="font-size:16px;margin:26px 0 0">BIOS</h2>
+  <div id="bios"></div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const token = new URLSearchParams(location.search).get('token') || '';
+const auth = token ? {'X-RetroPi-Token': token} : {};
+const log = m => { $('#log').textContent = m; };
+
+async function refresh() {
+  const r = await fetch('api/library', {headers: auth});
+  if (!r.ok) { log('Could not read the library.'); return; }
+  const d = await r.json();
+  $('#host').textContent = d.host + '  ·  ' + d.roms;
+  const sel = $('#sys'), keep = sel.value;
+  sel.innerHTML = '';
+  const names = d.systems.map(s => s.system);
+  for (const n of (names.length ? names : ['snes','nes','megadrive','gba','psx']))
+    sel.add(new Option(n, n));
+  if (keep) sel.value = keep;
+  $('#lib').innerHTML = d.systems.length ? d.systems.map(s => `
+    <div class="sys"><h3>${s.system}
+      <span class="tag">${s.count} games · ${s.human}</span>
+      ${s.network ? '<span class="tag">network</span>' : ''}</h3>
+      <ul class="games">${s.games.map(g =>
+        `<li><span style="color:var(--fg)">${g.name}</span><span>${g.human}</span></li>`
+      ).join('')}</ul></div>`).join('')
+    : '<p class="sub">Nothing yet. Drop some files above.</p>';
+  $('#bios').innerHTML = d.bios.map(b => b.missing.length
+    ? `<div class="sys"><h3>${b.system} <span class="tag warn">missing</span></h3>
+       <span class="sub">${b.missing.join(', ')} — put these in
+       ~/.config/retroarch/system/</span></div>` : '').join('')
+    || '<p class="sub">Nothing missing that we know to look for.</p>';
+}
+
+async function upload(files) {
+  const sys = $('#sys').value;
+  let done = 0;
+  for (const f of files) {
+    log(`Uploading ${f.name} (${++done}/${files.length})…`);
+    const r = await fetch(`api/roms/${encodeURIComponent(sys)}/${encodeURIComponent(f.name)}`,
+                          {method: 'PUT', headers: auth, body: f});
+    if (!r.ok) { log(`${f.name}: ${await r.text()}`); return; }
+  }
+  log(`Uploaded ${done} file${done === 1 ? '' : 's'}.`);
+  refresh();
+}
+
+const drop = $('#drop');
+drop.onclick = () => $('#file').click();
+$('#pick').onclick = () => $('#file').click();
+$('#file').onchange = e => upload(e.target.files);
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('hot'); };
+drop.ondragleave = () => drop.classList.remove('hot');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('hot');
+                     upload(e.dataTransfer.files); };
+$('#rescan').onclick = async () => {
+  await fetch('api/rescan', {method: 'POST', headers: auth});
+  log('Frontend will pick up changes on next launch.');
+};
+refresh();
+</script>
+"""
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "RetroPiPortal/1.0"
+    token = ""
+
+    def log_message(self, fmt, *args):
+        sys.stderr.write("[portal] %s - %s\n" % (self.address_string(), fmt % args))
+
+    # -- helpers ---------------------------------------------------------
+    def _send(self, code, body=b"", ctype="text/plain; charset=utf-8"):
+        if isinstance(body, str):
+            body = body.encode()
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        # This UI is served to a browser on the LAN; keep it from being framed
+        # or sniffed, and do not let another origin script it.
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def _json(self, code, obj):
+        self._send(code, json.dumps(obj), "application/json")
+
+    def _authed(self):
+        """Writes require the token when one is configured; reads stay open."""
+        if not self.token:
+            return True
+        supplied = self.headers.get("X-RetroPi-Token", "")
+        if not supplied:
+            from urllib.parse import urlparse, parse_qs
+            supplied = parse_qs(urlparse(self.path).query).get("token", [""])[0]
+        return supplied == self.token
+
+    def _split(self):
+        from urllib.parse import urlparse, unquote
+        parts = [unquote(p) for p in urlparse(self.path).path.strip("/").split("/")]
+        return [p for p in parts if p]
+
+    # -- routes ----------------------------------------------------------
+    def do_GET(self):
+        parts = self._split()
+        if not parts:
+            return self._send(200, PAGE, "text/html; charset=utf-8")
+        if parts == ["api", "library"]:
+            systems = list_library()
+            for s in systems:
+                s["human"] = human(s["bytes"])
+                for g in s["games"]:
+                    g["human"] = human(g["size"])
+            return self._json(200, {
+                "host": socket.gethostname(),
+                "roms": str(roms_dir()),
+                "systems": systems,
+                "bios": bios_status(),
+            })
+        return self._send(404, "not found")
+
+    def do_HEAD(self):
+        self.do_GET()
+
+    def do_PUT(self):
+        if not self._authed():
+            return self._send(403, "bad or missing token")
+        parts = self._split()
+        if len(parts) != 4 or parts[0] != "api" or parts[1] != "roms":
+            return self._send(404, "not found")
+
+        system = safe_system(parts[2])
+        if not system:
+            return self._send(400, "bad system name")
+        name = safe_name(parts[3])
+        if not name:
+            return self._send(
+                400, "refused: unsupported file type or unsafe name.\n"
+                     "Allowed extensions: " + ", ".join(sorted(ALLOWED_EXT)))
+
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return self._send(400, "bad Content-Length")
+        if length <= 0:
+            return self._send(400, "empty upload")
+        if length > MAX_UPLOAD:
+            return self._send(413, "file too large")
+
+        free = shutil.disk_usage(roms_dir()).free if roms_dir().exists() else 0
+        if free and length > free - (256 * 1024 * 1024):
+            return self._send(507, "not enough free space on the Pi")
+
+        target_dir = resolve_under(roms_dir(), system)
+        if target_dir is None:
+            return self._send(400, "bad path")
+        try:
+            target_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            return self._send(500, f"could not create {system}: {e}")
+
+        target = resolve_under(target_dir, name)
+        if target is None:
+            return self._send(400, "bad path")
+
+        # Write to a temp file next to the target, then rename: a dropped
+        # connection never leaves a half-copied game the frontend will list.
+        tmp = target.with_name("." + target.name + ".part")
+        written = 0
+        try:
+            with open(tmp, "wb") as fh:
+                while written < length:
+                    chunk = self.rfile.read(min(1 << 20, length - written))
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+                    written += len(chunk)
+            if written != length:
+                tmp.unlink(missing_ok=True)
+                return self._send(400, "upload truncated")
+            os.replace(tmp, target)
+        except OSError as e:
+            tmp.unlink(missing_ok=True)
+            return self._send(500, f"write failed: {e}")
+
+        mark_dirty()
+        return self._json(201, {"stored": str(target), "bytes": written})
+
+    def do_DELETE(self):
+        if not self._authed():
+            return self._send(403, "bad or missing token")
+        parts = self._split()
+        if len(parts) != 4 or parts[0] != "api" or parts[1] != "roms":
+            return self._send(404, "not found")
+        system, name = safe_system(parts[2]), safe_name(parts[3])
+        if not system or not name:
+            return self._send(400, "bad name")
+        target = resolve_under(roms_dir() / system, name)
+        if target is None or not target.is_file():
+            return self._send(404, "no such game")
+        try:
+            target.unlink()
+        except OSError as e:
+            return self._send(500, f"delete failed: {e}")
+        mark_dirty()
+        return self._send(200, "deleted")
+
+    def do_POST(self):
+        if not self._authed():
+            return self._send(403, "bad or missing token")
+        if self._split() == ["api", "rescan"]:
+            mark_dirty()
+            return self._send(200, "ok")
+        return self._send(404, "not found")
+
+
+def mark_dirty():
+    try:
+        STATE.mkdir(parents=True, exist_ok=True)
+        (STATE / "library-dirty").touch()
+    except OSError:
+        pass
+
+
+def main():
+    if conf_get("portal_enabled", "yes").lower() in ("0", "no", "off", "false"):
+        print("[portal] disabled in retropi.conf", file=sys.stderr)
+        return 0
+    try:
+        port = int(conf_get("portal_port", "8080"))
+    except ValueError:
+        port = 8080
+    Handler.token = conf_get("portal_token", "")
+
+    root = roms_dir()
+    root.mkdir(parents=True, exist_ok=True)
+
+    srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    srv.daemon_threads = True
+    print(f"[portal] serving {root} on http://{socket.gethostname()}:{port}",
+          file=sys.stderr)
+    if not Handler.token:
+        print("[portal] no portal_token set - anyone on your network can "
+              "upload. Set one in retropi.conf if that is not what you want.",
+              file=sys.stderr)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

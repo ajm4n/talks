@@ -10,15 +10,30 @@ bad()  { FAIL=$((FAIL+1)); printf '\033[31m  FAIL \033[0m%s\n' "$*"; }
 skip() { SKIP=$((SKIP+1)); printf '\033[33m  skip \033[0m%s\n' "$*"; }
 head_() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
-scripts() {
+all_scripts() {
     find . -type f \( -name '*.sh' -o -path './overlay/opt/retropi/bin/*' \
-        -o -path './test/stubs/*' -o -name '00-run.sh' \) -not -type l | sort
+        -o -path './test/stubs/*' -o -name '00-run.sh' -o -name '*.py' \) \
+        -not -type l -not -path '*/__pycache__/*' -not -name '*.pyc' \
+        -not -path './pi-gen/pi-gen/*' -not -path './.vm/*' | sort
 }
+
+# Classify by shebang rather than by extension: the portal is Python and lives
+# in bin/ alongside the shell tools, and bash -n on it is meaningless noise.
+is_python() { head -n1 "$1" | grep -q 'python'; }
+
+scripts() { while read -r f; do is_python "$f" || echo "$f"; done < <(all_scripts); }
+py_scripts() { while read -r f; do is_python "$f" && echo "$f"; done < <(all_scripts); }
 
 head_ "bash syntax"
 while read -r f; do
     bash -n "$f" 2>/dev/null && ok "$f" || bad "$f: $(bash -n "$f" 2>&1 | head -n1)"
 done < <(scripts)
+
+head_ "python syntax"
+while read -r f; do
+    python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$f" 2>/dev/null \
+        && ok "$f" || bad "$f: $(python3 -c "import ast,sys; ast.parse(open(sys.argv[1]).read())" "$f" 2>&1 | tail -n1)"
+done < <(py_scripts)
 
 head_ "shellcheck"
 if command -v shellcheck >/dev/null; then
@@ -96,6 +111,7 @@ done < <(grep -rhoE '/opt/retropi/(bin|lib|share)/[A-Za-z0-9._/-]+' \
 
 # Every executable must be listed in the README command table or be internal.
 for b in overlay/opt/retropi/bin/*; do
+    [ -f "$b" ] || continue
     n=$(basename "$b")
     case $n in retropi-session|retropi-frontend|retropi-stream-launch|retropi-firstboot) continue ;; esac
     grep -q "$n" README.md || bad "$n is undocumented in README.md"
