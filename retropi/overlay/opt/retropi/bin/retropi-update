@@ -9,7 +9,10 @@
 #   retropi-update --streaming  moonlight-embedded for PC game streaming
 #   retropi-update --system     apt upgrade
 set -uo pipefail
-. /opt/retropi/lib/common.sh
+# Resolve our own install prefix, so these run identically from /opt/retropi
+# and from a source checkout (overlay$RETROPI_BIN/...).
+: "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "$RETROPI_PREFIX/lib/common.sh"
 [ "$(id -u)" -eq 0 ] || die "run me with sudo"
 
 ESDE_VERSION=${ESDE_VERSION:-$(conf_get esde_version 3.2.0)}

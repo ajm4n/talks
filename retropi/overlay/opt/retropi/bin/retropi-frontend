@@ -2,7 +2,10 @@
 # Runs inside X. Picks the best frontend that is actually installed and keeps
 # it alive; if it dies we relaunch rather than dumping the user at a console.
 set -uo pipefail
-. /opt/retropi/lib/common.sh
+# Resolve our own install prefix, so these run identically from /opt/retropi
+# and from a source checkout (overlay$RETROPI_BIN/...).
+: "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "$RETROPI_PREFIX/lib/common.sh"
 
 xset -dpms s off s noblank 2>/dev/null || true
 unclutter -idle 0.5 -root >/dev/null 2>&1 &

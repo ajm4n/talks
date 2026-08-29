@@ -83,6 +83,26 @@ docs/                       controllers, library, streaming, troubleshooting
 | `retropi-stream pair <ip>` \| `list` \| `sync` | set up PC streaming, refresh the app list |
 | `sudo retropi-update [--cores\|--frontend\|--autoconfig\|--streaming]` | fetch or refresh the online bits |
 
+## Testing
+
+You do not need a Pi to check this works. Four tiers, cheapest first:
+
+```bash
+./test/lint.sh            # syntax, systemd units, sudoers, XML, dangling paths
+./test/unit/run.sh        # pairing logic, config, library, streaming - stubbed hardware
+./test/container-test.sh  # install.sh puts the right things on disk, twice over
+./test/run-qemu.sh        # a real VM: packages, systemd, X, samba, mounts
+```
+
+The unit suite fakes `bluetoothctl`, so the pairing state machine is testable
+without a radio — including that an already-paired pad gets reconnected rather
+than re-paired, and that a headset or keyboard is left alone.
+
+A VM covers all of the software and none of the hardware: no Bluetooth adapter
+and no GPU, so pairing and rendering still need the real thing (or a USB
+Bluetooth dongle passed through to the VM). `test/README.md` has the details,
+and `test/smoke-test.sh` is what to run over ssh after the first real boot.
+
 ## Requirements
 
 Raspberry Pi 4 or 5 (a 3B+ works for anything up to N64/PSX), 64-bit Raspberry

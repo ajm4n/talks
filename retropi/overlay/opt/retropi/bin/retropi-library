@@ -9,7 +9,10 @@
 #
 # Usage: retropi-library {mount|umount|status|import-usb <device>|scan}
 set -uo pipefail
-. /opt/retropi/lib/common.sh
+# Resolve our own install prefix, so these run identically from /opt/retropi
+# and from a source checkout (overlay$RETROPI_BIN/...).
+: "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "$RETROPI_PREFIX/lib/common.sh"
 
 NET_MOUNT=${RETROPI_NET_MOUNT:-/mnt/retropi-library}
 UNIT_NAME=$(systemd-escape -p --suffix=mount "$NET_MOUNT")

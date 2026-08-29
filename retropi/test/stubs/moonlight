@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Stand-in for moonlight-embedded.
+set -uo pipefail
+STATE=${STUB_MOONLIGHT_STATE:-/tmp/stub-moonlight}
+mkdir -p "$STATE"
+printf '%s\n' "$*" >> "$STATE/commands.log"
+
+case ${1:-} in
+    pair) echo "Please enter the following PIN on the target PC: 1234" ;;
+    list)
+        cat <<'APPS'
+1. Desktop
+2. Steam Big Picture
+3. Hollow Knight
+APPS
+        ;;
+    stream) echo "streaming..." ;;
+    *) exit 0 ;;
+esac

@@ -32,21 +32,47 @@ TARGET_HOME=$(getent passwd "$TARGET_USER" | cut -d: -f6)
 log "setting up for user '$TARGET_USER' ($TARGET_HOME)"
 
 # -------------------------------------------------------------- packages ----
+# Two escape hatches, for containers and CI only. On real hardware you want
+# both stages to run and to fail loudly if they cannot.
+SKIP_PACKAGES=${RETROPI_SKIP_PACKAGES:-0}
+NO_SERVICES=${RETROPI_NO_SERVICES:-0}
+
+if [ "$SKIP_PACKAGES" = 1 ]; then
+    warn "RETROPI_SKIP_PACKAGES=1 - not installing any packages"
+else
 log "installing packages (this is the slow bit)"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y --no-install-recommends \
-    retroarch \
-    xserver-xorg xinit x11-xserver-utils unclutter \
-    libgl1-mesa-dri mesa-vulkan-drivers \
-    bluez bluez-tools bluetooth pi-bluetooth \
-    alsa-utils pulseaudio pulseaudio-module-bluetooth \
-    network-manager \
-    cifs-utils nfs-common rsync samba samba-common-bin \
-    curl ca-certificates git jq whiptail unzip p7zip-full \
-    fuse libfuse2 \
-    joystick evtest \
+
+# Split deliberately: the first list must succeed, the second is Pi-specific or
+# release-specific and is allowed to be missing. That is what lets this run in a
+# plain arm64/amd64 Debian VM for testing, where pi-bluetooth does not exist.
+REQUIRED_PKGS=(
+    retroarch
+    xserver-xorg xinit x11-xserver-utils unclutter
+    libgl1-mesa-dri
+    bluez bluez-tools
+    alsa-utils
+    cifs-utils nfs-common rsync samba samba-common-bin
+    curl ca-certificates git jq whiptail unzip p7zip-full
+    joystick evtest
+)
+OPTIONAL_PKGS=(
+    pi-bluetooth bluetooth
+    mesa-vulkan-drivers
+    pulseaudio pulseaudio-module-bluetooth
+    network-manager
+    fuse libfuse2 libfuse2t64
+)
+
+apt-get install -y --no-install-recommends "${REQUIRED_PKGS[@]}" \
     || die "package install failed"
+
+for p in "${OPTIONAL_PKGS[@]}"; do
+    apt-get install -y --no-install-recommends "$p" >/dev/null 2>&1 \
+        || warn "optional package '$p' unavailable on this release, skipping"
+done
+fi
 
 # ---------------------------------------------------------------- overlay ----
 log "installing RetroPi files"
@@ -129,6 +155,7 @@ chown -R "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.config"
 
 # ------------------------------------------------------------------ samba ----
 # So dragging games across from a desktop needs no cables and no ssh.
+install -d /etc/samba
 if ! grep -q '^\[ROMs\]' /etc/samba/smb.conf 2>/dev/null; then
     log "sharing $TARGET_HOME/ROMs on the network"
     cat >> /etc/samba/smb.conf <<SMB
@@ -143,10 +170,14 @@ if ! grep -q '^\[ROMs\]' /etc/samba/smb.conf 2>/dev/null; then
    directory mask = 0775
    force user = $TARGET_USER
 SMB
-    systemctl enable --now smbd >/dev/null 2>&1 || warn "smbd did not start"
+    [ "$NO_SERVICES" = 1 ] || systemctl enable --now smbd >/dev/null 2>&1 \
+        || warn "smbd did not start"
 fi
 
 # --------------------------------------------------------------- services ----
+if [ "$NO_SERVICES" = 1 ]; then
+    warn "RETROPI_NO_SERVICES=1 - not enabling any services"
+else
 log "enabling services"
 systemctl daemon-reload
 systemctl enable bluetooth >/dev/null
@@ -157,6 +188,7 @@ systemctl enable "retropi-session@$TARGET_USER.service" >/dev/null
 # "black screen with a blinking cursor" failure.
 systemctl disable getty@tty1.service >/dev/null 2>&1 || true
 systemctl set-default multi-user.target >/dev/null
+fi
 
 # Anyone can start X on the console (Debian defaults to console-users-only,
 # which the systemd-started session does not satisfy).

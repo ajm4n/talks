@@ -3,7 +3,10 @@
 # Everything it asks can also be pre-answered by editing retropi.conf on the
 # boot (FAT) partition from any machine, in which case those steps are skipped.
 set -uo pipefail
-. /opt/retropi/lib/common.sh
+# Resolve our own install prefix, so these run identically from /opt/retropi
+# and from a source checkout (overlay$RETROPI_BIN/...).
+: "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "$RETROPI_PREFIX/lib/common.sh"
 
 export NEWT_COLORS='root=,black
 window=,black
@@ -49,7 +52,7 @@ step_wifi() {
 }
 
 step_controller() {
-    if /opt/retropi/bin/retropi-bt-pair status >/dev/null 2>&1; then
+    if $RETROPI_BIN/retropi-bt-pair status >/dev/null 2>&1; then
         msg "Controller already connected. Nice."
         return 0
     fi
@@ -57,13 +60,13 @@ step_controller() {
 
     {
         echo 10; sleep 1
-        /opt/retropi/bin/retropi-bt-pair pair 60 &
+        $RETROPI_BIN/retropi-bt-pair pair 60 &
         local pid=$!
         for i in $(seq 15 5 95); do echo "$i"; sleep 3; done
         wait $pid
     } | whiptail --gauge "Scanning for controllers..." 8 68 0
 
-    if /opt/retropi/bin/retropi-bt-pair status >/dev/null 2>&1; then
+    if $RETROPI_BIN/retropi-bt-pair status >/dev/null 2>&1; then
         msg "Paired. It will reconnect on its own from now on."
     else
         msg "No controller found. The pairing daemon keeps trying in the
@@ -105,7 +108,7 @@ so you can drag files across from your desktop."
                 conf_set library_pass "${pass:-}"
                 chmod 600 "$RETROPI_CONF"
             fi
-            if /opt/retropi/bin/retropi-library mount; then
+            if $RETROPI_BIN/retropi-library mount; then
                 msg "Share attached. Games load straight off the network - nothing
 is copied to the SD card."
             else

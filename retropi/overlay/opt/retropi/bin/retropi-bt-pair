@@ -9,7 +9,10 @@
 #   retropi-bt-pair status   - list connected pads, exit 1 if none.
 #   retropi-bt-pair forget   - unpair every known gamepad.
 set -uo pipefail
-. /opt/retropi/lib/common.sh
+# Resolve our own install prefix, so these run identically from /opt/retropi
+# and from a source checkout (overlay$RETROPI_BIN/...).
+: "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "$RETROPI_PREFIX/lib/common.sh"
 
 # Names that identify a gamepad when the device class is unhelpful, which is
 # most of the time on cheap clones.

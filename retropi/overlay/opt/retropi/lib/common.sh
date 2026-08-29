@@ -2,6 +2,9 @@
 # Shared helpers for RetroPi scripts. Sourced, never executed directly.
 
 RETROPI_PREFIX=${RETROPI_PREFIX:-/opt/retropi}
+RETROPI_BIN=$RETROPI_PREFIX/bin
+RETROPI_LIB=$RETROPI_PREFIX/lib
+RETROPI_SHARE=$RETROPI_PREFIX/share
 RETROPI_STATE=${RETROPI_STATE:-/var/lib/retropi}
 RETROPI_USER=${RETROPI_USER:-$(getent passwd 1000 | cut -d: -f1)}
 RETROPI_HOME=$(getent passwd "$RETROPI_USER" | cut -d: -f6)

@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Stand-in for bluetoothctl, so the pairing logic can be tested without a radio.
+#
+# Devices are described in $STUB_BT_STATE/devices, one per line:
+#   MAC|Name|Icon|Class|paired|connected|discoverable_after_seconds
+# "discoverable_after" models a pad that only appears once scanning starts.
+# Adapter state and every command issued are logged for assertions.
+set -uo pipefail
+STATE=${STUB_BT_STATE:?STUB_BT_STATE not set}
+DEVICES=$STATE/devices
+LOG=$STATE/commands.log
+START=$(cat "$STATE/start_time" 2>/dev/null || echo 0)
+
+printf '%s\n' "$*" >> "$LOG"
+
+# bluetoothctl's --timeout flag comes before the subcommand.
+if [ "${1:-}" = "--timeout" ]; then shift 2; fi
+
+field() { awk -F'|' -v m="$1" -v n="$2" '$1==m {print $n}' "$DEVICES"; }
+
+set_field() {
+    local mac=$1 col=$2 val=$3 tmp=$STATE/.tmp
+    awk -F'|' -v OFS='|' -v m="$mac" -v c="$col" -v v="$val" \
+        '$1==m {$c=v} {print}' "$DEVICES" > "$tmp" && mv "$tmp" "$DEVICES"
+}
+
+# A device is visible once its delay has elapsed since the stub clock started.
+visible() {
+    local delay=$7 now elapsed
+    now=$(date +%s); elapsed=$(( now - START ))
+    [ "$elapsed" -ge "${delay:-0}" ]
+}
+
+case ${1:-} in
+    show)
+        echo "Controller AA:BB:CC:DD:EE:FF (public)"
+        echo "        Powered: $(cat "$STATE/powered" 2>/dev/null || echo no)"
+        ;;
+    power)       echo "$2" > "$STATE/powered"; echo "Changing power $2 succeeded" ;;
+    agent|default-agent|pairable|discoverable)
+        echo "ok" ;;
+    scan)
+        [ "${2:-}" = "on" ] && echo "Discovery started" || echo "Discovery stopped"
+        # Emulate a scan that runs until killed, like the real thing.
+        [ "${2:-}" = "on" ] && sleep 300
+        ;;
+    devices)
+        while IFS='|' read -r mac name icon class paired conn delay; do
+            [ -n "${mac:-}" ] || continue
+            visible "$mac" "$name" "$icon" "$class" "$paired" "$conn" "$delay" || continue
+            echo "Device $mac $name"
+        done < "$DEVICES"
+        ;;
+    info)
+        mac=$2
+        grep -q "^$mac|" "$DEVICES" || { echo "Device $mac not available"; exit 1; }
+        echo "Device $mac ($(field "$mac" 2))"
+        echo "        Name: $(field "$mac" 2)"
+        echo "        Icon: $(field "$mac" 3)"
+        echo "        Class: $(field "$mac" 4)"
+        echo "        Paired: $(field "$mac" 5)"
+        echo "        Trusted: no"
+        echo "        Connected: $(field "$mac" 6)"
+        ;;
+    pair)
+        [ "$(field "$2" 2)" = "UNPAIRABLE" ] && { echo "Failed to pair"; exit 1; }
+        set_field "$2" 5 yes; echo "Pairing successful" ;;
+    trust)   echo "trust succeeded" ;;
+    connect)
+        [ "$(field "$2" 5)" = "yes" ] || { echo "not paired"; exit 1; }
+        set_field "$2" 6 yes; echo "Connection successful" ;;
+    disconnect) set_field "$2" 6 no; echo "Successful disconnected" ;;
+    remove)
+        tmp=$STATE/.tmp
+        grep -v "^$2|" "$DEVICES" > "$tmp"; mv "$tmp" "$DEVICES"
+        echo "Device has been removed" ;;
+    *) echo "stub: unhandled '$*'" >&2; exit 0 ;;
+esac

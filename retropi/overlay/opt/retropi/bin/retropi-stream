@@ -9,7 +9,10 @@
 #   retropi-stream play <app>       stream one app fullscreen
 #   retropi-stream sync             write one .stream launcher per host app
 set -uo pipefail
-. /opt/retropi/lib/common.sh
+# Resolve our own install prefix, so these run identically from /opt/retropi
+# and from a source checkout (overlay$RETROPI_BIN/...).
+: "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "$RETROPI_PREFIX/lib/common.sh"
 
 HOST=$(conf_get stream_host "")
 STREAM_DIR=$RETROPI_ROMS/moonlight
@@ -57,7 +60,7 @@ cmd_sync() {
     done < <(moonlight list "$h" 2>/dev/null | sed -n 's/^[0-9]*\.[[:space:]]*//p')
     chown -R "$RETROPI_USER":"$RETROPI_USER" "$STREAM_DIR" 2>/dev/null || true
     log "wrote $(ls -1 "$STREAM_DIR" 2>/dev/null | wc -l) streamed titles to $STREAM_DIR"
-    /opt/retropi/bin/retropi-library scan
+    $RETROPI_BIN/retropi-library scan
 }
 
 case ${1:-list} in
