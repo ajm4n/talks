@@ -76,6 +76,10 @@ ck  "cmdline.txt quieted"           grep -q logo.nologo /boot/firmware/cmdline.t
 ck_owner "ROMs dir belongs to pi"   /home/pi/ROMs pi
 ck  "retroarch.cfg seeded"          grep -q input_exit_emulator_btn /home/pi/.config/retroarch/retroarch.cfg
 ck_owner "retroarch.cfg owned by pi" /home/pi/.config/retroarch/retroarch.cfg pi
+ck  "ES-DE settings seeded"         test -f /home/pi/ES-DE/es_settings.xml
+ck  "ES-DE has dark theme"          grep -q 'value="dark"' /home/pi/ES-DE/es_settings.xml
+ck  "ES-DE custom systems"          test -f /home/pi/ES-DE/custom_systems/es_systems.xml
+ck_owner "ES-DE dir owned by pi"    /home/pi/ES-DE pi
 ck  "samba share appended"          grep -q '^\[ROMs\]' /etc/samba/smb.conf
 ck  "Xwrapper allows anybody"       grep -q allowed_users=anybody /etc/X11/Xwrapper.config
 ck  "config parses after install"   /opt/retropi/bin/retropi-library status
@@ -91,6 +95,7 @@ ck_count "one ROMs stanza in smb.conf"      1 '^\[ROMs\]'          /etc/samba/sm
 ck_count "one logo.nologo in cmdline.txt"   1 'logo.nologo'        /boot/firmware/cmdline.txt
 ck_count "no duplicated retroarch key"      1 '^input_exit_emulator_btn' /home/pi/.config/retroarch/retroarch.cfg
 ck_count "user's edited value was kept"     1 '^video_smooth = "true"'   /home/pi/.config/retroarch/retroarch.cfg
+ck  "ES-DE settings survive re-install"  test -f /home/pi/ES-DE/es_settings.xml
 
 echo
 echo "$PASS passed, $FAIL failed"

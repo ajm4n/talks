@@ -2,25 +2,54 @@
 # The whole user-facing session: power on, land in the game menu, nothing else.
 # Started by retropi-session.service on tty1 after autologin.
 set -uo pipefail
-# Resolve our own install prefix, so these run identically from /opt/retropi
-# and from a source checkout (overlay$RETROPI_BIN/...).
 : "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 . "$RETROPI_PREFIX/lib/common.sh"
 
 export HOME=$RETROPI_HOME
 cd "$HOME" || exit 1
 
-# First boot has its own wizard; run it on the console before X comes up so the
-# user configures Wi-Fi and a controller with a keyboard-free flow.
+# Clear the VT so the user sees a clean screen, not kernel messages.
+clear >/dev/tty1 2>/dev/null || true
+setterm --cursor off 2>/dev/null || true
+
+show_splash() {
+    # Centered text splash on the console while we wait for the frontend.
+    local cols rows
+    cols=$(tput cols 2>/dev/null || echo 80)
+    rows=$(tput lines 2>/dev/null || echo 24)
+    local pad_y=$(( (rows - 6) / 2 ))
+    local msg="$1"
+    local pad_x=$(( (cols - ${#msg}) / 2 ))
+    [ "$pad_x" -lt 0 ] && pad_x=0
+    printf '\033[2J\033[H' >/dev/tty1
+    for _ in $(seq 1 "$pad_y"); do printf '\n' >/dev/tty1; done
+    printf '%*s\033[1;37m%s\033[0m\n' "$pad_x" "" "$msg" >/dev/tty1
+}
+
+# First boot has its own wizard; run it on the console before X comes up.
 if ! state_done firstboot; then
     $RETROPI_BIN/retropi-firstboot || warn "first-boot wizard exited non-zero"
 fi
 
-# A controller makes the difference between a console and a puzzle. Give the
-# pairing daemon a few seconds to reconnect a known pad before we draw anything.
+show_splash "Starting RetroPi..."
+
+# Give the pairing daemon a few seconds to reconnect a known pad.
 for _ in $(seq 1 10); do
     $RETROPI_BIN/retropi-bt-pair status >/dev/null 2>&1 && break
     sleep 1
 done
 
+# If no controller connected, show a message and keep waiting.
+if ! $RETROPI_BIN/retropi-bt-pair status >/dev/null 2>&1; then
+    show_splash "Hold the pair button on your controller..."
+    for _ in $(seq 1 30); do
+        $RETROPI_BIN/retropi-bt-pair status >/dev/null 2>&1 && break
+        sleep 1
+    done
+fi
+
+show_splash "Launching..."
+sleep 1
+
+setterm --cursor on 2>/dev/null || true
 exec startx $RETROPI_BIN/retropi-frontend -- :0 vt1 -keeptty -nolisten tcp

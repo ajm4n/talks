@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<!-- ES-DE settings for a console-like experience.
+     Layered into ~/ES-DE/ on install; ES-DE rewrites this on exit. -->
+<config>
+  <!-- Theme -->
+  <string name="ThemeSet" value="slate-es-de" />
+  <string name="ThemeVariant" value="noVideo" />
+  <string name="ThemeColorScheme" value="dark" />
+  <string name="ThemeAspectRatio" value="16:9" />
+
+  <!-- Carousel/system view: console-like -->
+  <string name="TransitionStyle" value="slide" />
+  <bool name="GamelistVideoAudio" value="false" />
+  <bool name="ScreensaverControls" value="false" />
+  <integer name="ScreensaverTimer" value="300" />
+  <string name="ScreensaverType" value="dim" />
+
+  <!-- Show only what matters -->
+  <bool name="FavoritesAddButton" value="true" />
+  <bool name="ShowFilteredResultsOnly" value="false" />
+  <bool name="QuickSystemSelect" value="true" />
+
+  <!-- Gamelist defaults -->
+  <bool name="OnlyGamesFromTheme" value="false" />
+  <string name="DefaultSortOrder" value="name, ascending" />
+  <bool name="FavoritesFirst" value="true" />
+
+  <!-- Audio -->
+  <bool name="NavigationSounds" value="true" />
+  <integer name="SoundVolumeNavigation" value="70" />
+  <integer name="SoundVolumeVideos" value="80" />
+
+  <!-- Controller-first: never show a keyboard prompt -->
+  <bool name="EnableMenuKidMode" value="false" />
+</config>

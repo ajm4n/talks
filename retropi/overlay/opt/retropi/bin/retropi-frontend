@@ -2,13 +2,16 @@
 # Runs inside X. Picks the best frontend that is actually installed and keeps
 # it alive; if it dies we relaunch rather than dumping the user at a console.
 set -uo pipefail
-# Resolve our own install prefix, so these run identically from /opt/retropi
-# and from a source checkout (overlay$RETROPI_BIN/...).
 : "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 . "$RETROPI_PREFIX/lib/common.sh"
 
+# Blank screen, hide cursor, disable screensaver.
 xset -dpms s off s noblank 2>/dev/null || true
+xset s 0 0 2>/dev/null || true
 unclutter -idle 0.5 -root >/dev/null 2>&1 &
+
+# Set a solid black background so there is never a grey X root window flash.
+xsetroot -solid black 2>/dev/null || true
 
 ESDE_APPIMAGE=$RETROPI_PREFIX/share/ES-DE.AppImage
 
@@ -20,20 +23,47 @@ launch() {
     elif have pegasus-fe; then
         pegasus-fe
     else
-        # Last resort, and not a bad one: RetroArch's own Ozone menu is fully
-        # controller-driven and can browse the ROM directories directly.
         retroarch --fullscreen
     fi
 }
 
+CRASH_COUNT=0
+MAX_CRASHES=5
+
 while true; do
     launch
     rc=$?
-    # ES-DE returns 0 on a requested quit; anything else is a crash we ride out.
-    if [ $rc -eq 0 ] && [ -e "$RETROPI_STATE/quit-requested" ]; then
-        rm -f "$RETROPI_STATE/quit-requested"
-        break
+
+    # ES-DE returns 0 on a clean quit.
+    if [ $rc -eq 0 ]; then
+        # Check for explicit shutdown/reboot requests from the frontend.
+        if [ -e "$RETROPI_STATE/shutdown-requested" ]; then
+            rm -f "$RETROPI_STATE/shutdown-requested"
+            sudo /sbin/shutdown -h now 2>/dev/null || sudo /usr/sbin/shutdown -h now
+            sleep 30
+            break
+        fi
+        if [ -e "$RETROPI_STATE/reboot-requested" ]; then
+            rm -f "$RETROPI_STATE/reboot-requested"
+            sudo /sbin/reboot 2>/dev/null || sudo /usr/sbin/reboot
+            sleep 30
+            break
+        fi
+        if [ -e "$RETROPI_STATE/quit-requested" ]; then
+            rm -f "$RETROPI_STATE/quit-requested"
+            break
+        fi
+        # A clean exit with no marker means the user quit from the frontend;
+        # restart it so they land back on the menu, not a blank screen.
+        CRASH_COUNT=0
+    else
+        CRASH_COUNT=$((CRASH_COUNT + 1))
+        warn "frontend exited (rc=$rc), crash #$CRASH_COUNT"
+        if [ "$CRASH_COUNT" -ge "$MAX_CRASHES" ]; then
+            warn "frontend crashed $MAX_CRASHES times, falling back to RetroArch"
+            retroarch --fullscreen
+            CRASH_COUNT=0
+        fi
     fi
-    warn "frontend exited (rc=$rc), restarting"
     sleep 2
 done

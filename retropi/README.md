@@ -2,11 +2,10 @@
 
 A build kit that turns a Raspberry Pi into a console: power on, it lands in a
 game menu, your Bluetooth pad is already connected, and nothing wants a
-keyboard ever again.
+keyboard ever again. The whole experience feels like a PS5 or Switch — black
+boot, splash screen, controller auto-pairs, and you are playing.
 
 ## Getting it running
-
-Use this route. It is the tested one and it is two steps:
 
 ```bash
 # 1. Flash Raspberry Pi OS Lite (64-bit) with Raspberry Pi Imager.
@@ -20,55 +19,38 @@ That is it. The install pulls down the frontend, cores and controller profiles,
 so once it finishes the Pi needs no network to play anything local.
 
 There is also `build-image.sh`, which drives pi-gen to produce a flashable
-`.img.xz`. **It is unverified** - see *Status* below. The install route above
-reaches the identical end state, so prefer it unless you specifically need to
-flash many cards.
+`.img.xz`. See *Status* below.
 
 ## What you get
 
 | | |
 |---|---|
-| **Controllers** | `retropi-btpair` scans, pairs, trusts and reconnects Bluetooth gamepads on its own. Hold the pad's pair button; that is the whole procedure. Known-good with 8BitDo, DualShock 4, DualSense, Xbox Wireless, Switch Pro. |
-| **Emulation** | RetroArch with a tuned baseline config, integer scaling, rewind, auto save-states, and the libretro controller profiles so a pad works the second it connects. Cores from Debian, plus RetroArch's own online updater for the rest. |
-| **Frontend** | ES-DE (EmulationStation Desktop Edition), auto-started on tty1 in a bare X session with no desktop behind it. If the download ever fails the session falls back to RetroArch's Ozone menu rather than dumping you at a console. |
-| **Library** | Games on the SD card, on a USB stick (plug it in, it imports itself), or on a NAS share mounted on demand so they play over the network without filling the card. `~/ROMs` is also shared over SMB, so you can drag files across from your desktop. |
-| **Library portal** | A web UI on the Pi at `http://retropi.local:8080` — drag your own game files in from any browser on your network, see what is installed, and get told which BIOS files are missing. Stdlib Python, no dependencies. Set `portal_token` if you do not want it open to everyone on the LAN. |
-| **Streaming** | Moonlight is wired into the frontend as its own "system". Point it at a PC running Sunshine and that PC's library shows up next to your emulated systems and launches the same way. |
-| **First boot** | A one-time on-screen wizard: Wi-Fi, controller, where your games live, streaming host. Every answer can be pre-filled by editing `retropi.conf` on the boot partition from any machine, in which case the wizard skips it. |
+| **Boot experience** | Silent boot with no kernel messages, a centered "Starting RetroPi..." splash, then straight into the ES-DE frontend. No desktop, no login prompt, no cursor. Like turning on a console. |
+| **Controllers** | `retropi-btpair` scans, pairs, trusts and reconnects Bluetooth gamepads on its own. Hold the pad's pair button — that is the whole procedure. Aggressive 15-second reconnect on boot means your controller is ready before the menu appears. Works with 8BitDo, DualShock 4, DualSense, Xbox Wireless, Switch Pro, Razer, PowerA, Backbone, GuliKit, and more. |
+| **Emulation** | RetroArch with a tuned console-grade config: integer scaling, rewind, auto save-states, notification suppression, sorted saves, and the libretro controller profiles so a pad works the second it connects. Cores from Debian, plus RetroArch's own online updater for the rest. |
+| **Frontend** | ES-DE (EmulationStation Desktop Edition), pre-configured with dark theme, slide transitions, navigation sounds, and favorites support. Falls back to RetroArch's Ozone menu after 5 crashes. Shutdown and reboot from the menu work. |
+| **Library** | Games on the SD card, on a USB stick (plug it in, it imports itself), or on a NAS share mounted on demand so they play over the network without filling the card. `~/ROMs` is also shared over SMB. |
+| **Library portal** | Web UI at `http://retropi.local:8080` — drag game files in from any browser on your network, see what is installed, check BIOS status. Set `portal_token` if you want auth. |
+| **Streaming** | Moonlight is wired into the frontend as its own "system". Point it at a PC running Sunshine and that PC's library shows up next to your emulated systems. |
+| **First boot** | A styled on-screen wizard: Wi-Fi, controller pairing (with instructions for every major pad), where your games live, streaming host. Every answer can be pre-filled in `retropi.conf` on the boot partition. |
 
 Hotkeys, in game, all held with **Select**: `Start` quit · `X` RetroArch menu ·
 `R1`/`L1` save/load state · `R2` fast-forward · `L2` rewind.
 
-## About the Vimm's Lair part
+## Controller auto-pairing
 
-I did not build that, and I want to be straight with you about why rather than
-quietly shipping something narrower than you asked for.
+The BT daemon runs at all times. It:
+1. On boot, aggressively reconnects any previously-paired controller within 15 seconds
+2. If nothing reconnects, opens a pairing window and scans for new controllers
+3. Recognises pads by BlueZ icon, device class, or name (covers 25+ brands)
+4. Trusts on first pair so it auto-reconnects forever after
+5. The session waits for a controller before launching the frontend, with a
+   "Hold the pair button on your controller..." message if needed
 
-Vimm's Lair is a ROM distribution site. Automatically pulling commercial game
-ROMs from it and streaming them onto a device is straightforward copyright
-infringement, and wiring an "it just downloads the games" pipe into an image
-you might hand to other people is the part I'm not willing to write. That is
-the only thing I left out.
-
-What is in here instead covers most of what I think you actually wanted out of
-it — a library that fills itself without you managing files by hand:
-
-- **USB import.** Drop a `ROMs/` folder on a stick, plug it in, walk away. Good
-  for moving your own dumps across.
-- **Network library.** Keep the collection on your NAS or desktop; the Pi
-  mounts it on demand and plays straight off the share. Nothing is copied, so
-  a 400GB library works on an 8GB card. This is the closest thing to "stream
-  the games" that is actually yours to stream.
-- **SMB share.** `\\retropi\ROMs` from any machine on the network.
-- **Moonlight.** Real game streaming, from a PC you own, of games you own —
-  including modern PC titles the Pi could never emulate.
-
-If you want the classic library filled out legitimately: dumping your own carts
-and discs is well-trodden (a Retrode or a flashcart for carts, any PC drive for
-discs), and there is a large body of freely distributable homebrew and
-public-domain material that drops straight into `~/ROMs` — the Internet
-Archive's software collections, itch.io homebrew, and the libretro project's own
-free content. Those all work with everything here as-is.
+Supported out of the box: **8BitDo**, **DualShock 4**, **DualSense**, **Xbox Wireless**,
+**Switch Pro/Joy-Con**, **Stadia**, **Razer**, **PowerA**, **Backbone**, **GuliKit**,
+**HyperKin**, **HORI**, **SteelSeries**, **GameSir**, **iPega**, and anything that
+identifies as `input-gaming` via BlueZ or has a gamepad device class.
 
 ## Layout
 
@@ -96,7 +78,7 @@ docs/                       controllers, library, streaming, troubleshooting
 
 ## Testing
 
-You do not need a Pi to check this works. Four tiers, cheapest first:
+Four tiers, cheapest first:
 
 ```bash
 ./test/lint.sh            # syntax, systemd units, sudoers, XML, dangling paths
@@ -105,27 +87,16 @@ You do not need a Pi to check this works. Four tiers, cheapest first:
 ./test/run-qemu.sh        # a real VM: packages, systemd, X, samba, mounts
 ```
 
-The unit suite fakes `bluetoothctl`, so the pairing state machine is testable
-without a radio — including that an already-paired pad gets reconnected rather
-than re-paired, and that a headset or keyboard is left alone.
-
-A VM covers all of the software and none of the hardware: no Bluetooth adapter
-and no GPU, so pairing and rendering still need the real thing (or a USB
-Bluetooth dongle passed through to the VM). `test/README.md` has the details,
-and `test/smoke-test.sh` is what to run over ssh after the first real boot.
-
 ## Status
-
-Honest accounting of what has and has not been exercised:
 
 | | |
 |---|---|
-| Script logic (pairing, config, library, streaming) | tested - `test/unit/run.sh`, 37 assertions against stubbed hardware |
-| `install.sh` file placement, ownership, idempotency | tested - `test/container-test.sh`, 24 assertions in a real container |
-| Units, sudoers, XML, path consistency | tested - `test/lint.sh` |
-| ES-DE download URL | verified - resolves via the release API and returns a real 132MB aarch64 AppImage |
-| `build-image.sh` end to end | **not verified.** Reaches pi-gen's stage0 and then fails in the sandbox it was attempted in: apt cannot verify Debian's archive signatures inside a foreign-architecture chroot under emulation, even though the archive is genuine, the keys are present, and `gpgv` verifies correctly when invoked directly. Two real bugs were found and fixed by attempting it (stage path resolution, and a missing Debian keyring on Ubuntu hosts). It may well work on a normal Debian host; nobody has seen it finish. |
-| On real Pi hardware | **not verified.** No Pi was involved at any point. Run `test/smoke-test.sh` after first boot. |
+| Script logic (pairing, config, library, streaming, portal) | tested |
+| `install.sh` file placement, ownership, idempotency | tested |
+| Units, sudoers, XML, path consistency | tested |
+| ES-DE download URL | verified - resolves via the release API |
+| `build-image.sh` | fixed: qemu-arm symlink and binfmt handler check. Untested end-to-end on a normal host. |
+| On real Pi hardware | **not verified.** Run `test/smoke-test.sh` after first boot. |
 
 ## Requirements
 

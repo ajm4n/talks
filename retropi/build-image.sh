@@ -46,6 +46,40 @@ if [ ! -f /usr/share/keyrings/debian-archive-keyring.gpg ]; then
         || { echo "could not install debian-archive-keyring" >&2; exit 1; }
 fi
 
+# pi-gen expects a binary called "qemu-arm" for its ARM chroot. On most hosts
+# this lives at "qemu-arm-static". Installing qemu-user-binfmt to get the
+# "qemu-arm" name would remove qemu-user-static and kill the binfmt handler.
+# A symlink avoids the conflict entirely.
+if ! command -v qemu-arm >/dev/null 2>&1; then
+    if command -v qemu-arm-static >/dev/null 2>&1; then
+        echo "[retropi] symlinking qemu-arm -> qemu-arm-static"
+        ln -sf "$(command -v qemu-arm-static)" /usr/local/bin/qemu-arm
+    elif command -v qemu-aarch64-static >/dev/null 2>&1; then
+        echo "[retropi] symlinking qemu-arm -> qemu-aarch64-static"
+        ln -sf "$(command -v qemu-aarch64-static)" /usr/local/bin/qemu-arm
+    else
+        echo "qemu-user-static is required but not found" >&2; exit 1
+    fi
+fi
+
+# Verify the binfmt handler is actually registered and working. Without this
+# the chroot silently fails with "exec format error" deep inside apt.
+if [ -d /proc/sys/fs/binfmt_misc ]; then
+    if ! ls /proc/sys/fs/binfmt_misc/qemu-* >/dev/null 2>&1; then
+        echo "[retropi] binfmt handler not registered; attempting manual registration"
+        if [ -f /proc/sys/fs/binfmt_misc/register ]; then
+            echo ':qemu-aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-aarch64-static:OCF' \
+                > /proc/sys/fs/binfmt_misc/register 2>/dev/null || true
+        fi
+    fi
+    if ! ls /proc/sys/fs/binfmt_misc/qemu-* >/dev/null 2>&1; then
+        echo "binfmt_misc handler is not registered - the chroot will fail" >&2
+        echo "on a normal host: sudo systemctl restart systemd-binfmt" >&2
+        exit 1
+    fi
+    echo "[retropi] binfmt handler is active"
+fi
+
 if [ ! -d "$PIGEN_DIR" ]; then
     echo "[retropi] fetching pi-gen ($PIGEN_BRANCH)"
     git clone --depth 1 -b "$PIGEN_BRANCH" https://github.com/RPi-Distro/pi-gen "$PIGEN_DIR"

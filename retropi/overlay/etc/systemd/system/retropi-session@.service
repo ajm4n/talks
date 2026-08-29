@@ -1,7 +1,7 @@
 [Unit]
 Description=RetroPi game session for %i
-After=systemd-user-sessions.service bluetooth.service sound.target
-Wants=bluetooth.service
+After=systemd-user-sessions.service bluetooth.service sound.target retropi-btpair.service
+Wants=bluetooth.service retropi-btpair.service
 Conflicts=getty@tty1.service
 
 [Service]
@@ -16,6 +16,8 @@ TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
 PAMName=login
+UtmpIdentifier=tty1
+Environment=XDG_RUNTIME_DIR=/run/user/%U
 
 [Install]
 WantedBy=multi-user.target

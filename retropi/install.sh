@@ -153,6 +153,16 @@ print(f"  {len(added)} defaults applied, {len(existing)} existing keys kept")
 PY
 chown -R "$TARGET_USER":"$TARGET_USER" "$TARGET_HOME/.config"
 
+# Seed ES-DE settings for a console-like out-of-box experience.
+ESDE_DIR=$TARGET_HOME/ES-DE
+install -d -o "$TARGET_USER" -g "$TARGET_USER" "$ESDE_DIR" "$ESDE_DIR/custom_systems"
+if [ ! -f "$ESDE_DIR/es_settings.xml" ]; then
+    cp "$PREFIX/share/es-de/es_settings.xml" "$ESDE_DIR/es_settings.xml"
+    log "  ES-DE defaults seeded"
+fi
+cp "$PREFIX/share/es-de/es_systems.xml" "$ESDE_DIR/custom_systems/es_systems.xml"
+chown -R "$TARGET_USER":"$TARGET_USER" "$ESDE_DIR"
+
 # ------------------------------------------------------------------ samba ----
 # So dragging games across from a desktop needs no cables and no ssh.
 install -d /etc/samba

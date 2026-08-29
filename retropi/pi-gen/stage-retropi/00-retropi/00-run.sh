@@ -45,9 +45,12 @@ for f in /opt/retropi/bin/*; do ln -sf "\$f" "/usr/local/bin/\$(basename "\$f")"
 
 install -d -o "\$USER_NAME" -g "\$USER_NAME" \
     "/home/\$USER_NAME/ROMs" "/home/\$USER_NAME/ES-DE" \
+    "/home/\$USER_NAME/ES-DE/custom_systems" \
     "/home/\$USER_NAME/.config/retroarch/autoconfig"
 cp /opt/retropi/share/retroarch/retroarch.cfg "/home/\$USER_NAME/.config/retroarch/retroarch.cfg"
-chown -R "\$USER_NAME:\$USER_NAME" "/home/\$USER_NAME/.config"
+cp /opt/retropi/share/es-de/es_settings.xml "/home/\$USER_NAME/ES-DE/es_settings.xml"
+cp /opt/retropi/share/es-de/es_systems.xml "/home/\$USER_NAME/ES-DE/custom_systems/es_systems.xml"
+chown -R "\$USER_NAME:\$USER_NAME" "/home/\$USER_NAME/.config" "/home/\$USER_NAME/ES-DE"
 
 printf 'allowed_users=anybody\nneeds_root_rights=yes\n' > /etc/X11/Xwrapper.config
 
@@ -55,6 +58,7 @@ systemctl enable bluetooth
 systemctl enable retropi-btpair.service
 systemctl enable retropi-library.service
 systemctl enable retropi-session@\$USER_NAME.service
+systemctl enable retropi-portal@\$USER_NAME.service
 systemctl enable retropi-firstrun.service
 systemctl disable getty@tty1.service || true
 systemctl set-default multi-user.target

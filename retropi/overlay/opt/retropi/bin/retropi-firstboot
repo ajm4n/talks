@@ -3,31 +3,42 @@
 # Everything it asks can also be pre-answered by editing retropi.conf on the
 # boot (FAT) partition from any machine, in which case those steps are skipped.
 set -uo pipefail
-# Resolve our own install prefix, so these run identically from /opt/retropi
-# and from a source checkout (overlay$RETROPI_BIN/...).
 : "${RETROPI_PREFIX:=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 . "$RETROPI_PREFIX/lib/common.sh"
 
 export NEWT_COLORS='root=,black
-window=,black
-border=white,black
+window=black,black
+border=cyan,black
+title=white,black
 textbox=white,black
-button=black,white
+button=black,cyan
+compactbutton=white,black
 listbox=white,black
-actlistbox=black,white
-entry=white,black'
+actlistbox=black,cyan
+actsellistbox=black,cyan
+checkbox=white,black
+entry=white,black
+label=white,black
+emptyscale=black,black
+fullscale=cyan,black
+helpline=cyan,black
+roottext=cyan,black'
 
-ui()  { whiptail --backtitle "RetroPi setup" "$@" 3>&1 1>&2 2>&3; }
-msg() { whiptail --backtitle "RetroPi setup" --msgbox "$1" 12 68; }
-ask() { whiptail --backtitle "RetroPi setup" --yesno "$1" 12 68; }
+ui()  { whiptail --backtitle "  R E T R O P i" "$@" 3>&1 1>&2 2>&3; }
+msg() { whiptail --backtitle "  R E T R O P i" --msgbox "$1" 14 72; }
+ask() { whiptail --backtitle "  R E T R O P i" --yesno "$1" 14 72; }
 
 step_welcome() {
-    msg "RetroPi
+    msg "
+   R E T R O P i
 
-A few questions and you are done. You can use a keyboard now; after this
-screen everything is controller-driven.
 
-Nothing here is permanent - re-run it any time with:  retropi-setup"
+   Welcome. A few quick questions and you are playing.
+
+   You can use a keyboard to answer these. After this,
+   everything is controller-driven.
+
+   Re-run any time with:  retropi-setup"
 }
 
 step_wifi() {
@@ -38,7 +49,7 @@ step_wifi() {
     local ssid pass ssids
     ssids=$(nmcli -t -f SSID,SIGNAL dev wifi list --rescan yes \
             | awk -F: 'length($1) { printf "%s %s%%\n", $1, $2 }' | sort -u | head -n 20)
-    [ -n "$ssids" ] || { msg "No networks found. You can set Wi-Fi up later from the frontend."; return 0; }
+    [ -n "$ssids" ] || { msg "No networks found. You can set Wi-Fi up later."; return 0; }
 
     # shellcheck disable=SC2086
     ssid=$(ui --title "Wi-Fi" --menu "Pick your network" 20 68 10 $ssids) || return 0
@@ -53,10 +64,10 @@ step_wifi() {
 
 step_controller() {
     if $RETROPI_BIN/retropi-bt-pair status >/dev/null 2>&1; then
-        msg "Controller already connected. Nice."
+        msg "Controller already connected."
         return 0
     fi
-    ask "Pair a Bluetooth controller now?\n\nPut the pad into pairing mode first:\n  8BitDo      hold  Start, then Select for 3s\n  DualShock 4 hold  Share + PS\n  DualSense   hold  Create + PS\n  Xbox        hold  the pair button on the back\n  Switch Pro  hold  the Sync button on the top" || return 0
+    ask "Pair a Bluetooth controller now?\n\nPut the pad into pairing mode:\n\n  PS4/PS5       hold Share + PS button\n  Xbox          hold the pair button (top edge)\n  Switch Pro    hold Sync button (top)\n  8BitDo        hold Start, then Select 3s\n\nMost controllers: hold the button that\nmakes the lights flash." || return 0
 
     {
         echo 10; sleep 1
@@ -67,10 +78,9 @@ step_controller() {
     } | whiptail --gauge "Scanning for controllers..." 8 68 0
 
     if $RETROPI_BIN/retropi-bt-pair status >/dev/null 2>&1; then
-        msg "Paired. It will reconnect on its own from now on."
+        msg "Paired! It will reconnect automatically from now on.\n\nYou can pair more controllers any time from the\nRetroPi menu."
     else
-        msg "No controller found. The pairing daemon keeps trying in the
-background, so just put the pad in pairing mode again once the menu is up."
+        msg "No controller found yet.\n\nThe pairing daemon keeps scanning in the background.\nJust put the pad in pairing mode and it will connect."
     fi
 }
 
@@ -87,8 +97,7 @@ step_library() {
         local)
             mkdir -p "$RETROPI_ROMS"
             chown -R "$RETROPI_USER":"$RETROPI_USER" "$RETROPI_ROMS"
-            msg "Put game files in:\n\n  $RETROPI_ROMS/<system>/\n\ne.g. $RETROPI_ROMS/snes/\n\nThe Pi shares that folder over the network as \\\\$(hostname)\\ROMs
-so you can drag files across from your desktop."
+            msg "Put game files in:\n\n  $RETROPI_ROMS/<system>/\n\ne.g. $RETROPI_ROMS/snes/\n\nOr use the web portal:\n  http://$(hostname).local:8080\n\nOr the network share:\n  \\\\$(hostname)\\ROMs"
             conf_set library_type none
             ;;
         network)
@@ -109,27 +118,21 @@ so you can drag files across from your desktop."
                 chmod 600 "$RETROPI_CONF"
             fi
             if $RETROPI_BIN/retropi-library mount; then
-                msg "Share attached. Games load straight off the network - nothing
-is copied to the SD card."
+                msg "Share attached. Games load straight off the network."
             else
-                msg "Could not attach the share. Check the details and re-run:
-  sudo retropi-library mount"
+                msg "Could not attach the share. Check the details and re-run:\n  sudo retropi-library mount"
             fi
             ;;
         usb)
             conf_set usb_import yes
-            msg "Put a folder named ROMs at the top level of a USB stick, with a
-subfolder per system. Plug it in and the Pi copies it across on its own."
+            msg "Put a ROMs folder on a USB stick with subfolders per system.\nPlug it in and the Pi copies everything across."
             ;;
     esac
 }
 
 step_streaming() {
     have moonlight || return 0
-    ask "Stream games from a gaming PC to this Pi?\n\nIf you run Sunshine or GeForce Experience on a PC on this network,
-the Pi can play its library over the network at full speed.
-
-Set that up now?" || return 0
+    ask "Stream games from a gaming PC?\n\nIf you run Sunshine on a PC on this network, the Pi can\nplay its entire library at full speed over the network.\n\nSet that up now?" || return 0
 
     local host pin
     host=$(ui --inputbox "PC hostname or IP" 10 60 "") || return 0
@@ -145,15 +148,19 @@ Set that up now?" || return 0
 
 step_done() {
     mark_done firstboot
-    msg "Done.
+    msg "
+   All set.
 
-The menu comes up next. Handy combos on the pad, in-game:
 
-  Select + Start   quit back to the menu
-  Select + X       open the RetroArch menu
-  Select + R1/L1   save / load state
+   Controller shortcuts (hold Select):
 
-Re-run this wizard any time with:  retropi-setup"
+     Select + Start     quit to menu
+     Select + X         RetroArch settings
+     Select + R1 / L1   save / load state
+     Select + R2 / L2   fast-forward / rewind
+
+
+   Re-run this wizard:  retropi-setup"
 }
 
 main() {
