@@ -1,0 +1,8 @@
+# Build scratch: pi-gen is cloned here on demand by build-image.sh.
+pi-gen/pi-gen/
+# QEMU disk images created by test/run-qemu.sh.
+.vm/
+# Built images.
+deploy/
+*.img
+*.img.xz
