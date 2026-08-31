@@ -28,12 +28,12 @@ exec "$RUNTIME" run --rm -i "${NET_ARGS[@]}" ${PROXY_ARGS[@]+"${PROXY_ARGS[@]}"}
     -v "$ROOT:/src:ro" -w /tmp "$IMAGE" bash -euo pipefail -s <<'GUEST'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq >/dev/null
-apt-get install -y -qq --no-install-recommends sudo python3 >/dev/null
+apt-get install -y -qq --no-install-recommends sudo python3 rsync >/dev/null
 
 # install.sh sets up whichever account owns uid 1000, as on a real Pi.
 useradd -u 1000 -m -s /bin/bash pi
 
-cp -r /src /work && cd /work
+rsync -a --exclude='pi-gen/pi-gen' --exclude='.vm' --exclude='deploy' /src/ /work && cd /work
 mkdir -p /boot/firmware
 printf 'console=serial0,115200 root=/dev/mmcblk0p2 rootwait\n' > /boot/firmware/cmdline.txt
 printf '[all]\n' > /boot/firmware/config.txt

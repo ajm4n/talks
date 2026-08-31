@@ -1,120 +1,245 @@
 #!/usr/bin/env bash
-# Build a flashable RetroPi .img with pi-gen.
+# Build a flashable RetroPi .img.xz from an official Raspberry Pi OS Lite image.
 #
-# Needs a Debian/Ubuntu machine (or container) with kvm-less binfmt support:
-#   sudo apt install coreutils quilt parted qemu-user-static debootstrap \
-#        zerofree zip dosfstools libarchive-tools libcap2-bin grep rsync \
-#        xz-utils file git curl bc gpg pigz xxd arch-test
+# Downloads the latest arm64 Lite image, expands the rootfs, injects the RetroPi
+# overlay and a first-boot service that finishes installation (package install,
+# core download, frontend fetch) on the Pi itself. No cross-compilation or qemu
+# chroot needed — the heavy lifting happens on real hardware at first boot.
+#
+# Needs: curl, xz, parted, losetup, e2fsprogs, rsync, mtools
+#   sudo apt install curl xz-utils parted e2fsprogs rsync mtools
 #
 # Usage:  sudo ./build-image.sh [--hostname retropi] [--user pi] [--pass raspberry]
 #
-# Output: pi-gen/deploy/*-retropi.img.xz
+# Output: deploy/retropi-<date>.img.xz
 set -euo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-PIGEN_DIR=${PIGEN_DIR:-$HERE/pi-gen/pi-gen}
-PIGEN_BRANCH=${PIGEN_BRANCH:-arm64}
 
 HOSTNAME_=retropi
 USERNAME=pi
 PASSWORD=raspberry
-LOCALE=en_GB.UTF-8
-TIMEZONE=Etc/UTC
-KEYBOARD=gb
 
 while [ $# -gt 0 ]; do
     case $1 in
         --hostname) HOSTNAME_=$2; shift 2 ;;
         --user)     USERNAME=$2;  shift 2 ;;
         --pass)     PASSWORD=$2;  shift 2 ;;
-        --locale)   LOCALE=$2;    shift 2 ;;
-        --timezone) TIMEZONE=$2;  shift 2 ;;
-        --keyboard) KEYBOARD=$2;  shift 2 ;;
-        -h|--help)  sed -n '2,14p' "$0"; exit 0 ;;
+        -h|--help)  sed -n '2,16p' "$0"; exit 0 ;;
         *) echo "unknown option $1" >&2; exit 1 ;;
     esac
 done
 
-[ "$(id -u)" -eq 0 ] || { echo "pi-gen needs root; re-run with sudo" >&2; exit 1; }
+[ "$(id -u)" -eq 0 ] || { echo "needs root; re-run with sudo" >&2; exit 1; }
 
-# Building on Ubuntu is common and almost works: Ubuntu ships only its own
-# keyrings, so debootstrap cannot verify Debian's archive and the chroot's apt
-# fails with NO_PUBKEY several minutes in. Catch it here instead.
-if [ ! -f /usr/share/keyrings/debian-archive-keyring.gpg ]; then
-    echo "[retropi] installing debian-archive-keyring (required to bootstrap Debian)"
-    apt-get update -qq && apt-get install -y debian-archive-keyring \
-        || { echo "could not install debian-archive-keyring" >&2; exit 1; }
+log()  { printf '\033[1;36m[retropi]\033[0m %s\n' "$*"; }
+die()  { printf '\033[1;31m[retropi]\033[0m %s\n' "$*" >&2; exit 1; }
+
+WORK="$HERE/.build"
+DEPLOY="$HERE/deploy"
+mkdir -p "$WORK" "$DEPLOY"
+
+for cmd in curl xz parted losetup resize2fs rsync mcopy; do
+    command -v "$cmd" >/dev/null || die "missing: $cmd"
+done
+
+# Ensure /dev basics exist (containers sometimes lose these).
+for d in urandom:1:9 random:1:8 null:1:3 zero:1:5; do
+    IFS=: read -r name maj min <<<"$d"
+    [ -e "/dev/$name" ] || mknod "/dev/$name" c "$maj" "$min"
+    chmod 666 "/dev/$name"
+done
+
+# Ensure loop devices exist.
+[ -e /dev/loop-control ] || mknod /dev/loop-control c 10 237
+for i in $(seq 0 7); do
+    [ -e "/dev/loop$i" ] || mknod "/dev/loop$i" b 7 "$i"
+done
+
+# ----------------------------------------------------------- download image ---
+IMG_URL_BASE="https://downloads.raspberrypi.com/raspios_lite_arm64/images/"
+if [ ! -f "$WORK/base.img" ]; then
+    log "finding latest Raspberry Pi OS Lite arm64 image"
+    LATEST_DIR=$(curl -fsSL "$IMG_URL_BASE" | grep -oP 'raspios_lite_arm64-\d{4}-\d{2}-\d{2}/' | sort | tail -n1)
+    [ -n "$LATEST_DIR" ] || die "could not find image directory"
+    IMG_FILE=$(curl -fsSL "${IMG_URL_BASE}${LATEST_DIR}" | grep -oP '\d{4}-\d{2}-\d{2}-raspios-[a-z]+-arm64-lite\.img\.xz' | head -n1)
+    [ -n "$IMG_FILE" ] || die "could not find .img.xz in $LATEST_DIR"
+    IMG_URL="${IMG_URL_BASE}${LATEST_DIR}${IMG_FILE}"
+
+    log "downloading $IMG_FILE"
+    curl -fL -o "$WORK/base.img.xz" "$IMG_URL" \
+        || die "download failed"
+
+    log "decompressing"
+    xz -d "$WORK/base.img.xz"
 fi
 
-# pi-gen expects a binary called "qemu-arm" for its ARM chroot. On most hosts
-# this lives at "qemu-arm-static". Installing qemu-user-binfmt to get the
-# "qemu-arm" name would remove qemu-user-static and kill the binfmt handler.
-# A symlink avoids the conflict entirely.
-if ! command -v qemu-arm >/dev/null 2>&1; then
-    if command -v qemu-arm-static >/dev/null 2>&1; then
-        echo "[retropi] symlinking qemu-arm -> qemu-arm-static"
-        ln -sf "$(command -v qemu-arm-static)" /usr/local/bin/qemu-arm
-    elif command -v qemu-aarch64-static >/dev/null 2>&1; then
-        echo "[retropi] symlinking qemu-arm -> qemu-aarch64-static"
-        ln -sf "$(command -v qemu-aarch64-static)" /usr/local/bin/qemu-arm
-    else
-        echo "qemu-user-static is required but not found" >&2; exit 1
-    fi
+IMG="$WORK/retropi.img"
+cp "$WORK/base.img" "$IMG"
+
+# -------------------------------------------------------------- expand rootfs ---
+log "expanding rootfs (+2 GiB for packages)"
+truncate -s +2G "$IMG"
+LOOP=$(losetup --find --show --partscan "$IMG")
+cleanup() { umount -R "$WORK/rootfs" 2>/dev/null || true; losetup -d "$LOOP" 2>/dev/null || true; }
+trap cleanup EXIT
+
+partprobe "$LOOP" 2>/dev/null || true
+for _ in $(seq 1 10); do [ -e "${LOOP}p2" ] && break; sleep 0.5; done
+[ -e "${LOOP}p2" ] || die "partition devices did not appear (${LOOP}p2)"
+
+PART_START=$(parted -ms "$LOOP" unit s print | awk -F: '/^2:/{gsub(/s/,"",$2); print $2}')
+parted -s "$LOOP" rm 2
+parted -s "$LOOP" mkpart primary ext4 "${PART_START}s" 100%
+partprobe "$LOOP" 2>/dev/null || true
+e2fsck -fy "${LOOP}p2" >/dev/null 2>&1 || true
+resize2fs "${LOOP}p2"
+
+# --------------------------------------------------------- mount rootfs only ---
+log "mounting rootfs"
+mkdir -p "$WORK/rootfs"
+mount "${LOOP}p2" "$WORK/rootfs"
+ROOTFS="$WORK/rootfs"
+
+# ----------------------------------------------------------- inject overlay ---
+log "injecting RetroPi overlay"
+install -d "$ROOTFS/usr/local/src/retropi"
+rsync -a --exclude='pi-gen' --exclude='.build' --exclude='deploy' \
+    --exclude='.vm' --exclude='.git' \
+    "$HERE/" "$ROOTFS/usr/local/src/retropi/"
+
+cp -r "$HERE/overlay/opt/retropi/." "$ROOTFS/opt/retropi/" 2>/dev/null || {
+    install -d "$ROOTFS/opt/retropi"
+    cp -r "$HERE/overlay/opt/retropi/." "$ROOTFS/opt/retropi/"
+}
+cp -r "$HERE/overlay/etc/." "$ROOTFS/etc/"
+chmod +x "$ROOTFS/opt/retropi/bin/"*
+chmod 0440 "$ROOTFS/etc/sudoers.d/retropi"
+install -d "$ROOTFS/var/lib/retropi"
+
+install -d "$ROOTFS/usr/local/bin"
+for f in "$ROOTFS/opt/retropi/bin/"*; do
+    ln -sf "/opt/retropi/bin/$(basename "$f")" "$ROOTFS/usr/local/bin/$(basename "$f")"
+done
+
+# ---------------------------------------- first-boot service (finishes setup) ---
+log "installing first-boot service"
+cat > "$ROOTFS/usr/local/src/retropi/firstrun.sh" <<'FIRSTRUN'
+#!/usr/bin/env bash
+set -euo pipefail
+exec > /var/log/retropi-firstrun.log 2>&1
+echo "[retropi] first-run: $(date)"
+cd /usr/local/src/retropi
+./install.sh
+systemctl disable retropi-firstrun.service
+rm -f /etc/systemd/system/retropi-firstrun.service
+echo "[retropi] first-run complete: $(date)"
+FIRSTRUN
+chmod +x "$ROOTFS/usr/local/src/retropi/firstrun.sh"
+
+cat > "$ROOTFS/etc/systemd/system/retropi-firstrun.service" <<'UNIT'
+[Unit]
+Description=RetroPi first-run setup
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/local/src/retropi/firstrun.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/src/retropi/firstrun.sh
+RemainAfterExit=yes
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+ln -sf /etc/systemd/system/retropi-firstrun.service \
+    "$ROOTFS/etc/systemd/system/multi-user.target.wants/retropi-firstrun.service"
+
+# ------------------------------------------------------ hostname ---
+echo "$HOSTNAME_" > "$ROOTFS/etc/hostname"
+sed -i "s/127\.0\.1\.1.*/127.0.1.1\t$HOSTNAME_/" "$ROOTFS/etc/hosts" 2>/dev/null || true
+
+# ------------------------------------------------ unmount rootfs ---
+log "unmounting rootfs"
+sync
+umount "$WORK/rootfs"
+
+# ------------------------------------------ boot partition (mtools) ---
+# The boot partition is FAT32; many container kernels lack vfat, so we use
+# mtools instead of mounting. mtools addresses the partition through an
+# offset into the image on the loop device.
+log "configuring boot partition"
+BOOT_OFFSET=$(parted -ms "$LOOP" unit B print | awk -F: '/^1:/{gsub(/B/,"",$2); print $2}')
+BOOT_SIZE=$(parted -ms "$LOOP" unit B print | awk -F: '/^1:/{gsub(/B/,"",$4); print $4}')
+
+export MTOOLS_SKIP_CHECK=1
+MTOOLSRC="$WORK/mtoolsrc"
+cat > "$MTOOLSRC" <<MTCFG
+drive b:
+    file="${LOOP}"
+    offset=${BOOT_OFFSET}
+MTCFG
+export MTOOLSRC
+
+# Read existing config.txt, append our block if not present, write it back.
+TMPBOOT="$WORK/boot-tmp"
+mkdir -p "$TMPBOOT"
+
+mcopy b:/config.txt "$TMPBOOT/config.txt" 2>/dev/null || true
+if [ -f "$TMPBOOT/config.txt" ] && ! grep -q '^# --- retropi ---' "$TMPBOOT/config.txt"; then
+    cat >> "$TMPBOOT/config.txt" <<'TXT'
+
+# --- retropi ---
+dtoverlay=vc4-kms-v3d
+max_framebuffers=2
+hdmi_force_hotplug=1
+disable_overscan=1
+dtparam=audio=on
+TXT
+    mcopy -o "$TMPBOOT/config.txt" b:/config.txt
 fi
 
-# Verify the binfmt handler is actually registered and working. Without this
-# the chroot silently fails with "exec format error" deep inside apt.
-if [ -d /proc/sys/fs/binfmt_misc ]; then
-    if ! ls /proc/sys/fs/binfmt_misc/qemu-* >/dev/null 2>&1; then
-        echo "[retropi] binfmt handler not registered; attempting manual registration"
-        if [ -f /proc/sys/fs/binfmt_misc/register ]; then
-            echo ':qemu-aarch64:M::\x7fELF\x02\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xb7\x00:\xff\xff\xff\xff\xff\xff\xff\x00\xff\xff\xff\xff\xff\xff\xff\xff\xfe\xff\xff\xff:/usr/bin/qemu-aarch64-static:OCF' \
-                > /proc/sys/fs/binfmt_misc/register 2>/dev/null || true
-        fi
-    fi
-    if ! ls /proc/sys/fs/binfmt_misc/qemu-* >/dev/null 2>&1; then
-        echo "binfmt_misc handler is not registered - the chroot will fail" >&2
-        echo "on a normal host: sudo systemctl restart systemd-binfmt" >&2
-        exit 1
-    fi
-    echo "[retropi] binfmt handler is active"
+mcopy b:/cmdline.txt "$TMPBOOT/cmdline.txt" 2>/dev/null || true
+if [ -f "$TMPBOOT/cmdline.txt" ] && ! grep -q 'logo.nologo' "$TMPBOOT/cmdline.txt"; then
+    sed -i '1 s/$/ quiet loglevel=3 logo.nologo vt.global_cursor_default=0/' "$TMPBOOT/cmdline.txt"
+    mcopy -o "$TMPBOOT/cmdline.txt" b:/cmdline.txt
 fi
 
-if [ ! -d "$PIGEN_DIR" ]; then
-    echo "[retropi] fetching pi-gen ($PIGEN_BRANCH)"
-    git clone --depth 1 -b "$PIGEN_BRANCH" https://github.com/RPi-Distro/pi-gen "$PIGEN_DIR"
+# Seed boot config.
+mmd b:/retropi 2>/dev/null || true
+mcopy -o "$HERE/config/retropi.conf.example" b:/retropi/retropi.conf
+
+# Enable SSH.
+touch "$TMPBOOT/ssh"
+mcopy -o "$TMPBOOT/ssh" b:/ssh
+
+# Set user credentials.
+if command -v openssl >/dev/null 2>&1; then
+    HASH=$(echo "$PASSWORD" | openssl passwd -6 -stdin)
+    echo "${USERNAME}:${HASH}" > "$TMPBOOT/userconf.txt"
+    mcopy -o "$TMPBOOT/userconf.txt" b:/userconf.txt
 fi
 
-# pi-gen only runs stages it finds in its own tree, so link ours in. The stage
-# resolves our source tree from its own real path, so no other links are needed.
-ln -sfn "$HERE/pi-gen/stage-retropi" "$PIGEN_DIR/stage-retropi"
+rm -rf "$TMPBOOT" "$MTOOLSRC"
 
-# Stop after stage2 (Lite) plus ours - no desktop, nothing we do not use.
-touch "$PIGEN_DIR/stage3/SKIP" "$PIGEN_DIR/stage4/SKIP" "$PIGEN_DIR/stage5/SKIP" 2>/dev/null || true
-rm -f "$PIGEN_DIR"/stage{3,4,5}/EXPORT_* 2>/dev/null || true
+# ------------------------------------------------------------ detach loop ---
+losetup -d "$LOOP"
+trap - EXIT
 
-cat > "$PIGEN_DIR/config" <<CFG
-IMG_NAME='RetroPi'
-RELEASE=bookworm
-DEPLOY_COMPRESSION=xz
-COMPRESSION_LEVEL=6
-LOCALE_DEFAULT='$LOCALE'
-TARGET_HOSTNAME='$HOSTNAME_'
-KEYBOARD_KEYMAP='$KEYBOARD'
-KEYBOARD_LAYOUT='English (UK)'
-TIMEZONE_DEFAULT='$TIMEZONE'
-FIRST_USER_NAME='$USERNAME'
-FIRST_USER_PASS='$PASSWORD'
-DISABLE_FIRST_BOOT_USER_RENAME=1
-ENABLE_SSH=1
-STAGE_LIST="stage0 stage1 stage2 stage-retropi"
-CFG
+# ---------------------------------------------------------------- compress ---
+log "compressing (this takes a while)"
+xz -T0 -6 "$IMG"
 
-echo "[retropi] building - expect 30-60 minutes and ~10GB of scratch space"
-cd "$PIGEN_DIR"
-./build.sh
+OUTNAME="retropi-$(date +%Y-%m-%d).img.xz"
+mv "$IMG.xz" "$DEPLOY/$OUTNAME"
 
 echo
-echo "[retropi] done. Images are in $PIGEN_DIR/deploy/"
-ls -lh "$PIGEN_DIR/deploy/" 2>/dev/null || true
+log "done: $DEPLOY/$OUTNAME"
+ls -lh "$DEPLOY/$OUTNAME"
+echo
 echo "Flash with Raspberry Pi Imager (choose 'Use custom' and pick the .img.xz)."
+echo "First boot takes 5-10 minutes while it installs packages over the network."
+echo "After that, it reboots straight into the game menu."
